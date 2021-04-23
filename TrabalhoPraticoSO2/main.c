@@ -3,32 +3,56 @@
 #include <fcntl.h>
 #include <io.h>
 #include <stdio.h>
-#define MAX 256
+#define MAX 1000
+typedef int(__cdecl* MYPROC)(LPWSTR);
 
-
-
-int _tmain(int argc, LPTSTR argv[]) {
+int _tmain(int argc, TCHAR* argv[]) {
 	//UNICODE: Por defeito, a consola Windows não processa caracteres wide. 
 	//A maneira mais fácil para ter esta funcionalidade é chamar _setmode:
 #ifdef UNICODE 
 	_setmode(_fileno(stdin), _O_WTEXT);
 	_setmode(_fileno(stdout), _O_WTEXT);
+	_setmode(_fileno(stderr), _O_WTEXT);
 #endif
 
+	_tprintf(TEXT("Hello"));
+	//TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
+	TCHAR dll[MAX] = TEXT("SO2_TP_DLL_2021.dll");
+	HINSTANCE hinstLib = NULL;
+	hinstLib = LoadLibrary(dll);
 
-	TCHAR str[MAX], result[MAX] = TEXT("Olá! Controlador\n");
-		unsigned int i;
-	
-	do {
-		_tprintf(result);
-		fflush(stdin);
-		_fgetts(str, MAX, stdin);
-		//Retirar \n
-		str[_tcslen(str) - 1] = '\0';
-		//Maiúsculas
-		for (i = 0; i < _tcslen(str); i++)
-			str[i] = _totupper(str[i]);
-		_stprintf_s(result, MAX, TEXT("Frase:%s, Tamanho:%d\n"), str, _tcslen(str));
-	} while (_tcsicmp(TEXT("FIM"), str));
-	return 0;
+	MYPROC ProcAdd = NULL;
+	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;
+
+	if (hinstLib != NULL)
+	{
+		
+		ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
+
+		// If the function address is valid, call the function.
+
+		if (NULL != ProcAdd)
+		{
+			fRunTimeLinkSuccess = TRUE;
+			int nextX = 15;
+			int nextY = 10;
+			/*int currX = 15;
+			int currY = 10;*/
+			int status = 1;
+			while (status == 1) {
+				//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
+				status = (ProcAdd)(nextX, nextY, 50, 50, &nextX, &nextY);
+				// status 1 mov correta, 2 erro, 0 chegou 
+				_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), nextX, nextY, nextX, nextY, status);
+			}
+		}
+	 //Free the DLL module.
+
+		fFreeResult = FreeLibrary(hinstLib);
+		_tprintf(TEXT("Free lib"));
+	}
+
+	//unsigned int map[MAX][MAX] = { 0 };
+	//unsigned int i;
+
 }
