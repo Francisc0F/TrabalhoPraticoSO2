@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <io.h>
 #include <stdio.h>
+#include "utils.h"
 #define MAX 1000
 #define MAXAVIOES 100
 #define TAM 200
@@ -32,55 +33,57 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 	int maxAvioes;
 
-	if (RegCreateKeyEx(
-		HKEY_CURRENT_USER,
-		key_dir,
-		0,
-		NULL,
-		REG_OPTION_NON_VOLATILE,
-		KEY_ALL_ACCESS,
-		NULL,
-		&handle,
-		&handleRes
-	) != ERROR_SUCCESS) {
-		_tprintf(TEXT("Chave N_avioes nao foi nem criada nem aberta.\n"));
-		return -1;
-	}
+	Aviao listAvioes[MAX];
 
-	if (handleRes == REG_CREATED_NEW_KEY)
-		_tprintf(TEXT("Chave criada: %s\n"), key_dir);
-	else
-		_tprintf(TEXT("Chave aberta: %s\n"), key_dir);
+	//if (RegCreateKeyEx(
+	//	HKEY_CURRENT_USER,
+	//	key_dir,
+	//	0,
+	//	NULL,
+	//	REG_OPTION_NON_VOLATILE,
+	//	KEY_ALL_ACCESS,
+	//	NULL,
+	//	&handle,
+	//	&handleRes
+	//) != ERROR_SUCCESS) {
+	//	_tprintf(TEXT("Chave N_avioes nao foi nem criada nem aberta.\n"));
+	//	return -1;
+	//}
 
-	if (RegQueryValueEx(
-		handle,
-		key_name,
-		0,
-		NULL,
-		(LPBYTE)key_value,
-		&tamanho
-	) != ERROR_SUCCESS) {
-		_tprintf(TEXT("Numero de Avioes maximo nao esta definido.\n"));
-		_tprintf(TEXT("Numero de Avioes maximo: "));
-		_tscanf_s(TEXT("%s"), key_value, TAM);
+	//if (handleRes == REG_CREATED_NEW_KEY)
+	//	_tprintf(TEXT("Chave criada: %s\n"), key_dir);
+	//else
+	//	_tprintf(TEXT("Chave aberta: %s\n"), key_dir);
 
-		if (RegSetValueEx(
-			handle,
-			key_name,
-			0,
-			REG_SZ,
-			(LPCBYTE)&key_value,
-			sizeof(TCHAR) * (_tcslen(key_value) + 1) //lê o buffer todo
-		) != ERROR_SUCCESS) {
-			_tprintf(TEXT("O atributo nao foi alterado nem criado! ERRO! %s"), key_name);
-		}
+	//if (RegQueryValueEx(
+	//	handle,
+	//	key_name,
+	//	0,
+	//	NULL,
+	//	(LPBYTE)key_value,
+	//	&tamanho
+	//) != ERROR_SUCCESS) {
+	//	_tprintf(TEXT("Numero de Avioes maximo nao esta definido.\n"));
+	//	_tprintf(TEXT("Numero de Avioes maximo: "));
+	//	_tscanf_s(TEXT("%s"), key_value, TAM);
 
-	}
-	else {
-		maxAvioes = atoi(key_value);
-		_tprintf(TEXT("Atributo [%s] foi encontrado! value [%d]\n"), key_name, maxAvioes);
-		_tprintf(TEXT("Max avioes: %d"), maxAvioes);
-	}
+	//	if (RegSetValueEx(
+	//		handle,
+	//		key_name,
+	//		0,
+	//		REG_SZ,
+	//		(LPCBYTE)&key_value,
+	//		sizeof(TCHAR) * (_tcslen(key_value) + 1) //lê o buffer todo
+	//	) != ERROR_SUCCESS) {
+	//		_tprintf(TEXT("O atributo nao foi alterado nem criado! ERRO! %s"), key_name);
+	//	}
+
+	//}
+	//else {
+	//	maxAvioes = atoi(key_value);
+	//	_tprintf(TEXT("Atributo [%s] foi encontrado! value [%d]\n"), key_name, maxAvioes);
+	//	_tprintf(TEXT("Max avioes: %d"), maxAvioes);
+	//}
 
 
 
