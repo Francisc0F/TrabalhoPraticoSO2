@@ -3,11 +3,50 @@
 #include <fcntl.h>
 #include <io.h>
 #include <stdio.h>
-#include "utils.h"
+#include "../utils.h"
 #define MAX 1000
 #define MAXAVIOES 100
 #define TAM 200
+
+
 typedef int(__cdecl* MYPROC)(LPWSTR);
+
+
+
+DWORD WINAPI ThreadEscrever(LPVOID param) {
+	TCHAR msg[NUM_CHAR_FILE_MAP];
+	ThreadController* dados = (ThreadController*)param;
+
+	while (!(dados->terminar)) {
+		_tprintf(TEXT("Escreve \n"));
+
+		_fgetts(msg, NUM_CHAR_FILE_MAP, stdin);
+		msg[_tcslen(msg) - 1] = '\0'; //terminamos a string de maneira correta
+
+		if (_tcscmp(msg, TEXT("fim")) == 0)
+			dados->terminar = 1;
+
+
+		//faço lock ao mutex
+		WaitForSingleObject(dados->hMutex, INFINITE);
+
+		//limpa memoria antes de fazer a copia
+		ZeroMemory(dados->fileViewMap, NUM_CHAR_FILE_MAP * sizeof(TCHAR));
+
+		//copia memoria de um sitio para outro (aqui copia a mensagem escrita no terminal para o fileViewMap)
+		CopyMemory(dados->fileViewMap, msg, _tcslen(msg) * sizeof(TCHAR));
+
+		//liberto mutex
+		ReleaseMutex(dados->hMutex);
+
+		//desbloqueia evento
+		SetEvent(dados->hEvent);
+		Sleep(500);
+
+		ResetEvent(dados->hEvent); //bloqueia evento
+	}
+	return 0;
+}
 
 int _tmain(int argc, TCHAR* argv[]) {
 	//UNICODE: Por defeito, a consola Windows não processa caracteres wide. 
@@ -34,6 +73,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 	int maxAvioes;
 
 	Aviao listAvioes[MAX];
+
 
 	//if (RegCreateKeyEx(
 	//	HKEY_CURRENT_USER,
@@ -94,15 +134,15 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 
 
-	// dll
-	//_tprintf(TEXT("Hello"));
-	//TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
-	//TCHAR dll[MAX] = TEXT("SO2_TP_DLL_2021.dll");
-	//HINSTANCE hinstLib = NULL;
-	//hinstLib = LoadLibrary(dll);
+	 //dll
+	/*_tprintf(TEXT("Hello"));
+	TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
+	TCHAR dll[MAX] = TEXT("SO2_TP_DLL_2021.dll");
+	HINSTANCE hinstLib = NULL;
+	hinstLib = LoadLibrary(dll);
 
-	//MYPROC ProcAdd = NULL;
-	//BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;
+	MYPROC ProcAdd = NULL;
+	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;*/
 
 
 
@@ -137,5 +177,67 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 	//unsigned int map[MAX][MAX] = { 0 };
 	//unsigned int i;
+	ThreadController escrever;
+	HANDLE hFileMap;
+	HANDLE hEscrita;
+
+
+ //mapeia ficheiro num bloco de memoria
+	hFileMap = CreateFileMapping(
+		INVALID_HANDLE_VALUE,
+		NULL,
+		PAGE_READWRITE,
+		0,
+		NUM_CHAR_FILE_MAP * sizeof(TCHAR), // alterar o tamanho do filemapping
+		TEXT(FILE_MAP_MESSEGER_TO_PLANES)); //nome do file mapping, tem de ser único
+
+	if (hFileMap == NULL) {
+		_tprintf(TEXT("Erro no CreateFileMapping\n"));
+		//CloseHandle(hFile); //recebe um handle e fecha esse handle , no entanto o handle é limpo sempre que o processo termina
+		return 1;
+	}
+
+	//mapeia bloco de memoria para espaço de endereçamento
+	escrever.fileViewMap = (TCHAR*)MapViewOfFile(
+		hFileMap,
+		FILE_MAP_ALL_ACCESS,
+		0,
+		0,
+		0);
+
+	if (escrever.fileViewMap == NULL) {
+		_tprintf(TEXT("Erro no MapViewOfFile\n"));
+		return 1;
+	}
+
+
+	escrever.hEvent = CreateEvent(
+		NULL,
+		TRUE,
+		FALSE,
+		TEXT(EVENT_MESSEGER_TO_PLANES));
+
+	if (escrever.hEvent == NULL) {
+		_tprintf(TEXT("Erro no CreateEvent\n"));
+		UnmapViewOfFile(escrever.fileViewMap);
+		return 1;
+	}
+
+	escrever.hMutex = CreateMutex(
+		NULL,
+		FALSE,
+		TEXT(MUTEX_MESSEGER_TO_PLANES));
+
+	if (escrever.hMutex == NULL) {
+		_tprintf(TEXT("Erro no CreateMutex\n"));
+		UnmapViewOfFile(escrever.fileViewMap);
+		return 1;
+	}
+	escrever.terminar = 0;
+
+	hEscrita = CreateThread(NULL, 0, ThreadEscrever, &escrever, 0, NULL);
+
+	if (hEscrita != NULL)
+		WaitForSingleObject(hEscrita, INFINITE);
 
 }
