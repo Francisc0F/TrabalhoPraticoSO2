@@ -1,5 +1,7 @@
 #pragma once
 #define MAXAVIOESAEROPORTO 100
+#define MAXAEROPORTOS 100
+#define MAXAVIOES 100
 #define	READMAP "READMAP"
 
 #define FILE_MAP_MESSEGER_TO_PLANES "MESSEGER_TO_PLANES"
@@ -21,7 +23,7 @@ struct c {
 
 typedef struct x Aeroporto, * pAeroporto;
 struct x {
-	int id;
+	TCHAR nome[100];
 	Aviao listaAvioes[MAXAVIOESAEROPORTO];
 };
 

@@ -4,10 +4,12 @@
 #include <io.h>
 #include <stdio.h>
 #include "../utils.h"
+#include "controlador_utils.h"
 #define MAX 1000
 #define MAP 1000
 #define MAXAVIOES 100
 #define TAM 200
+
 
 
 typedef int(__cdecl* MYPROC)(LPWSTR);
@@ -74,6 +76,8 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 	int maxAvioes;
 
+	Aeroporto listaAeroportos[MAXAEROPORTOS] = {0};
+	//inicializarLista(listaAeroportos);
 	
 
 
@@ -240,17 +244,25 @@ int _tmain(int argc, TCHAR* argv[]) {
 		while (token != NULL)
 		{
 			//_tprintf(L"%ls\n", token);
-			if (_tcscmp(token, L"prox") == 0) {
-				_tprintf(TEXT("Próximo destino definido.\n"));
+			if (_tcscmp(token, L"addAero") == 0) {
+				token = wcstok_s(NULL, delim, &ptr);
+				if (token != NULL) {
+					adicionarAeroporto(token, 0, 0, listaAeroportos);
+				}
+			
 			}
-			else if (_tcscmp(token, L"emb") == 0) {
-				_tprintf(TEXT("Embarcar passageiros.\n"));
+			else if (_tcscmp(token, L"lista") == 0) {
+				_putws(TEXT("\n lista tudo."));
+				listaTudo(listaAeroportos);
 			}
-			else if (_tcscmp(token, L"init") == 0) {
-				_tprintf(TEXT("Iniciar viagem.\n"));
+			else if (_tcscmp(token, L"suspender") == 0) {
+				_putws(TEXT("suspende aceitação de novos aviões por parte dos utilizadores"));
 			}
-			else if (_tcscmp(token, L"quit") == 0) {
-				_tprintf(TEXT("Sair de instância de avião.\n"));
+			else if (_tcscmp(token, L"ativar") == 0) {
+				_putws(TEXT("ativa aceitação de novos aviões por parte dos utilizadores"));
+			}
+			else if (_tcscmp(token, L"end") == 0) {
+				_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
 			}
 			token = wcstok_s(NULL, delim, &ptr);
 		}
