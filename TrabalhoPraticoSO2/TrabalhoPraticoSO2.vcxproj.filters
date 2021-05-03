@@ -21,9 +21,15 @@
     <ClCompile Include="..\utils.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="controlador_utils.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="controlador_utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

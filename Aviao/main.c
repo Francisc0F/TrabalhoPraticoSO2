@@ -4,6 +4,7 @@
 #include <io.h>
 #include <stdio.h>
 #include "../utils.h"
+#include "aviao_utils.h"
 
 #define MAX 1000
 
@@ -98,12 +99,39 @@ int _tmain(int argc, LPTSTR argv[]) {
     ler.terminar = 0;
 
 
-    ler.terminar = 0;
-
     //cria threads
     hThreadReader = CreateThread(NULL, 0, ThreadReader, &ler, 0, NULL);
+
+  
+    while (1) {
+        menuAviao();
+        TCHAR tokenstring[50] = { 0 };
+        _fgetts(tokenstring, 50, stdin);
+        tokenstring[_tcslen(tokenstring) - 1] = '\0';
+        TCHAR* ptr;
+        TCHAR delim[] = L" ";
+        TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
+        while (token != NULL)
+        {
+            //_tprintf(L"%ls\n", token);
+            if (_tcscmp(token, L"prox") == 0) {
+                _tprintf(TEXT("Próximo destino definido.\n"));
+            }
+            else if (_tcscmp(token, L"emb") == 0) {
+                _tprintf(TEXT("Embarcar passageiros.\n"));
+            }
+            else if (_tcscmp(token, L"init") == 0) {
+                _tprintf(TEXT("Iniciar viagem.\n"));
+            }
+            else if (_tcscmp(token, L"quit") == 0) {
+                _tprintf(TEXT("Sair de instância de avião.\n"));
+            }
+            token = wcstok_s(NULL, delim, &ptr);
+        }
+    }
+
+
     if (hThreadReader != NULL)
         WaitForSingleObject(hThreadReader, INFINITE);
-    menuAviao();
 
 }

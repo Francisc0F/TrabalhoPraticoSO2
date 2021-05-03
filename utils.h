@@ -33,4 +33,3 @@ typedef struct {
 	int terminar;
 }ThreadController;
 
-void menuAviao();

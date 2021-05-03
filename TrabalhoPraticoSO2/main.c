@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "../utils.h"
 #define MAX 1000
+#define MAP 1000
 #define MAXAVIOES 100
 #define TAM 200
 
@@ -68,11 +69,12 @@ int _tmain(int argc, TCHAR* argv[]) {
 	TCHAR key_value[TAM]; //nome do par-valor
 
 	
+
 	DWORD tamanho = sizeof(key_value);
 
 	int maxAvioes;
 
-	Aviao listAvioes[MAX];
+	
 
 
 	//if (RegCreateKeyEx(
@@ -126,14 +128,6 @@ int _tmain(int argc, TCHAR* argv[]) {
 	//}
 
 
-
-
-
-
-	
-
-
-
 	 //dll
 	/*_tprintf(TEXT("Hello"));
 	TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
@@ -143,10 +137,6 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 	MYPROC ProcAdd = NULL;
 	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;*/
-
-
-
-
 
 	//if (hinstLib != NULL)
 	//{
@@ -235,7 +225,42 @@ int _tmain(int argc, TCHAR* argv[]) {
 	}
 	escrever.terminar = 0;
 
-	hEscrita = CreateThread(NULL, 0, ThreadEscrever, &escrever, 0, NULL);
+	// hEscrita = CreateThread(NULL, 0, ThreadEscrever, &escrever, 0, NULL);
+
+
+
+	while (1) {
+		menuControlador();
+		TCHAR tokenstring[50] = { 0 };
+		_fgetts(tokenstring, 50, stdin);
+		tokenstring[_tcslen(tokenstring) - 1] = '\0';
+		TCHAR* ptr;
+		TCHAR delim[] = L" ";
+		TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
+		while (token != NULL)
+		{
+			//_tprintf(L"%ls\n", token);
+			if (_tcscmp(token, L"prox") == 0) {
+				_tprintf(TEXT("Próximo destino definido.\n"));
+			}
+			else if (_tcscmp(token, L"emb") == 0) {
+				_tprintf(TEXT("Embarcar passageiros.\n"));
+			}
+			else if (_tcscmp(token, L"init") == 0) {
+				_tprintf(TEXT("Iniciar viagem.\n"));
+			}
+			else if (_tcscmp(token, L"quit") == 0) {
+				_tprintf(TEXT("Sair de instância de avião.\n"));
+			}
+			token = wcstok_s(NULL, delim, &ptr);
+		}
+
+	}
+
+
+
+
+
 
 	if (hEscrita != NULL)
 		WaitForSingleObject(hEscrita, INFINITE);
