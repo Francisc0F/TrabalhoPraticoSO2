@@ -24,6 +24,8 @@ struct c {
 typedef struct x Aeroporto, * pAeroporto;
 struct x {
 	TCHAR nome[100];
+	int x;
+	int y;
 	Aviao listaAvioes[MAXAVIOESAEROPORTO];
 };
 

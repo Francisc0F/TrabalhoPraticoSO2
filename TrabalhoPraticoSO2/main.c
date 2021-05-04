@@ -233,6 +233,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 
 
+
 	while (1) {
 		menuControlador();
 		TCHAR tokenstring[50] = { 0 };
@@ -241,18 +242,29 @@ int _tmain(int argc, TCHAR* argv[]) {
 		TCHAR* ptr;
 		TCHAR delim[] = L" ";
 		TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
+
+		TCHAR nome[100];
+		int y;
+		int x;
 		while (token != NULL)
 		{
 			//_tprintf(L"%ls\n", token);
 			if (_tcscmp(token, L"addAero") == 0) {
 				token = wcstok_s(NULL, delim, &ptr);
 				if (token != NULL) {
-					adicionarAeroporto(token, 0, 0, listaAeroportos);
+					_tcscpy_s(nome, _countof(nome), token);
+					token = wcstok_s(NULL, delim, &ptr);
+					if (token != NULL) {
+						x = _tstoi(token);
+						token = wcstok_s(NULL, delim, &ptr);
+						if (token != NULL) {
+							y = _tstoi(token);
+							adicionarAeroporto(nome, x, y, listaAeroportos);
+						}
+					}
 				}
-			
 			}
 			else if (_tcscmp(token, L"lista") == 0) {
-				_putws(TEXT("\n lista tudo."));
 				listaTudo(listaAeroportos);
 			}
 			else if (_tcscmp(token, L"suspender") == 0) {
