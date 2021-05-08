@@ -8,13 +8,8 @@
 #define MAX 1000
 #define MAP 1000
 #define MAXAVIOES 100
-#define TAM 200
-
-
 
 typedef int(__cdecl* MYPROC)(LPWSTR);
-
-
 
 DWORD WINAPI ThreadEscrever(LPVOID param) {
 	TCHAR msg[NUM_CHAR_FILE_MAP];
@@ -51,6 +46,49 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 	return 0;
 }
 
+
+//DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
+//	BufferCircularLer* dados = (BufferCircularLer*)param;
+//	CelulaBuffer cel;
+//	int contador = 0;
+//	int soma = 0;
+//
+//	while (!dados->terminar) {
+//
+//
+//		//aqui entramos na logica da aula teorica
+//
+//		//esperamos por uma posicao para lermos
+//		WaitForSingleObject(dados->hSemLeitura, INFINITE);
+//
+//		//esperamos que o mutex esteja livre
+//		WaitForSingleObject(dados->hMutex, INFINITE);
+//
+//
+//		//vamos copiar da proxima posicao de leitura do buffer circular para a nossa variavel cel
+//		CopyMemory(&cel, &dados->memPar->buffer[dados->memPar->posL], sizeof(CelulaBuffer));
+//		dados->memPar->posL++; //incrementamos a posicao de leitura para o proximo consumidor ler na posicao seguinte
+//
+//		//se apos o incremento a posicao de leitura chegar ao fim, tenho de voltar ao inicio
+//		if (dados->memPar->posL == TAM_BUFFER)
+//			dados->memPar->posL = 0;
+//
+//		//libertamos o mutex
+//		ReleaseMutex(dados->hMutex);
+//
+//		//libertamos o semaforo. temos de libertar uma posicao de escrita
+//		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
+//
+//		contador++;
+//		soma += cel.val;
+//		_tprintf(TEXT("C%d consumiu %d.\n"), dados->id, cel.val);
+//	}
+//	_tprintf(TEXT("C%d consumiu %d items.\n"), dados->id, soma);
+//
+//	return 0;
+//}
+
+
 int _tmain(int argc, TCHAR* argv[]) {
 	//UNICODE: Por defeito, a consola Windows não processa caracteres wide. 
 	//A maneira mais fácil para ter esta funcionalidade é chamar _setmode:
@@ -59,234 +97,80 @@ int _tmain(int argc, TCHAR* argv[]) {
 	_setmode(_fileno(stdout), _O_WTEXT);
 	_setmode(_fileno(stderr), _O_WTEXT);
 #endif
-	// registry key
-	
+
+	// regedit keys setup 
 	TCHAR key_dir[TAM] = TEXT("Software\\TRABALHOSO2\\");
-	//TCHAR key[TAM] = TEXT("Control");
-	DWORD key_res;
-	HKEY handle; // handle para chave depois de aberta ou criada
-	DWORD handleRes;
-
+	HKEY handle = NULL; // handle para chave depois de aberta ou criada
+	DWORD handleRes = NULL;
 	TCHAR key_name[TAM] = TEXT("N_avioes"); //nome do par-valor
-	TCHAR key_value[TAM]; //nome do par-valor
-
-	
-
-	DWORD tamanho = sizeof(key_value);
-
 	int maxAvioes;
+	checkRegEditKeys(key_dir, handle, handleRes, TEXT("N_avioes"), &maxAvioes);
 
-	Aeroporto listaAeroportos[MAXAEROPORTOS] = {0};
-	//inicializarLista(listaAeroportos);
 	
 
-
-	//if (RegCreateKeyEx(
-	//	HKEY_CURRENT_USER,
-	//	key_dir,
-	//	0,
-	//	NULL,
-	//	REG_OPTION_NON_VOLATILE,
-	//	KEY_ALL_ACCESS,
-	//	NULL,
-	//	&handle,
-	//	&handleRes
-	//) != ERROR_SUCCESS) {
-	//	_tprintf(TEXT("Chave N_avioes nao foi nem criada nem aberta.\n"));
-	//	return -1;
-	//}
-
-	//if (handleRes == REG_CREATED_NEW_KEY)
-	//	_tprintf(TEXT("Chave criada: %s\n"), key_dir);
-	//else
-	//	_tprintf(TEXT("Chave aberta: %s\n"), key_dir);
-
-	//if (RegQueryValueEx(
-	//	handle,
-	//	key_name,
-	//	0,
-	//	NULL,
-	//	(LPBYTE)key_value,
-	//	&tamanho
-	//) != ERROR_SUCCESS) {
-	//	_tprintf(TEXT("Numero de Avioes maximo nao esta definido.\n"));
-	//	_tprintf(TEXT("Numero de Avioes maximo: "));
-	//	_tscanf_s(TEXT("%s"), key_value, TAM);
-
-	//	if (RegSetValueEx(
-	//		handle,
-	//		key_name,
-	//		0,
-	//		REG_SZ,
-	//		(LPCBYTE)&key_value,
-	//		sizeof(TCHAR) * (_tcslen(key_value) + 1) //lê o buffer todo
-	//	) != ERROR_SUCCESS) {
-	//		_tprintf(TEXT("O atributo nao foi alterado nem criado! ERRO! %s"), key_name);
-	//	}
-
-	//}
-	//else {
-	//	maxAvioes = atoi(key_value);
-	//	_tprintf(TEXT("Atributo [%s] foi encontrado! value [%d]\n"), key_name, maxAvioes);
-	//	_tprintf(TEXT("Max avioes: %d"), maxAvioes);
-	//}
+	Aeroporto listaAeroportos[MAXAEROPORTOS] = { 0 };
 
 
-	 //dll
-	/*_tprintf(TEXT("Hello"));
-	TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
-	TCHAR dll[MAX] = TEXT("SO2_TP_DLL_2021.dll");
-	HINSTANCE hinstLib = NULL;
-	hinstLib = LoadLibrary(dll);
+	//ThreadController escrever;
+	//HANDLE hFileMap;
+	//HANDLE hEscrita;
+	//ThreadEnvioDeMsgParaAvioes(&escrever, &hFileMap, &hEscrita);
+	//hEscrita = CreateThread(NULL, 0, ThreadEscrever, &escrever, 0, NULL);
 
-	MYPROC ProcAdd = NULL;
-	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;*/
 
-	//if (hinstLib != NULL)
-	//{
-	//	
-	//	ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
+	// menu  
+	//while (1) {
+	//	menuControlador();
+	//	TCHAR tokenstring[50] = { 0 };
+	//	_fgetts(tokenstring, 50, stdin);
+	//	tokenstring[_tcslen(tokenstring) - 1] = '\0';
+	//	TCHAR* ptr;
+	//	TCHAR delim[] = L" ";
+	//	TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
 
-	//	// If the function address is valid, call the function.
-	//	if (NULL != ProcAdd)
+	//	TCHAR nome[100];
+	//	int y;
+	//	int x;
+	//	while (token != NULL)
 	//	{
-	//		fRunTimeLinkSuccess = TRUE;
-	//		int nextX = 15;
-	//		int nextY = 10;
-	//		/*int currX = 15;
-	//		int currY = 10;*/
-	//		int status = 1;
-	//		while (status == 1) {
-	//			//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
-	//			status = (ProcAdd)(nextX, nextY, 50, 50, &nextX, &nextY);
-	//			// status 1 mov correta, 2 erro, 0 chegou 
-	//			_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), nextX, nextY, nextX, nextY, status);
+	//		//_tprintf(L"%ls\n", token);
+	//		if (_tcscmp(token, L"addAero") == 0) {
+	//			token = wcstok_s(NULL, delim, &ptr);
+	//			if (token != NULL) {
+	//				_tcscpy_s(nome, _countof(nome), token);
+	//				token = wcstok_s(NULL, delim, &ptr);
+	//				if (token != NULL) {
+	//					x = _tstoi(token);
+	//					token = wcstok_s(NULL, delim, &ptr);
+	//					if (token != NULL) {
+	//						y = _tstoi(token);
+	//						adicionarAeroporto(nome, x, y, listaAeroportos);
+	//					}
+	//				}
+	//			}
 	//		}
+	//		else if (_tcscmp(token, L"lista") == 0) {
+	//			listaTudo(listaAeroportos);
+	//		}
+	//		else if (_tcscmp(token, L"suspender") == 0) {
+	//			_putws(TEXT("suspende aceitação de novos aviões por parte dos utilizadores"));
+	//		}
+	//		else if (_tcscmp(token, L"ativar") == 0) {
+	//			_putws(TEXT("ativa aceitação de novos aviões por parte dos utilizadores"));
+	//		}
+	//		else if (_tcscmp(token, L"end") == 0) {
+	//			_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
+	//		}
+	//		token = wcstok_s(NULL, delim, &ptr);
 	//	}
-	// //Free the DLL module.
-
-	//	fFreeResult = FreeLibrary(hinstLib);
-	//	_tprintf(TEXT("Free lib"));
 	//}
 
-	//unsigned int map[MAX][MAX] = { 0 };
-	//unsigned int i;
-	ThreadController escrever;
-	HANDLE hFileMap;
-	HANDLE hEscrita;
-
-
- //mapeia ficheiro num bloco de memoria
-	hFileMap = CreateFileMapping(
-		INVALID_HANDLE_VALUE,
-		NULL,
-		PAGE_READWRITE,
-		0,
-		NUM_CHAR_FILE_MAP * sizeof(TCHAR), // alterar o tamanho do filemapping
-		TEXT(FILE_MAP_MESSEGER_TO_PLANES)); //nome do file mapping, tem de ser único
-
-	if (hFileMap == NULL) {
-		_tprintf(TEXT("Erro no CreateFileMapping\n"));
-		//CloseHandle(hFile); //recebe um handle e fecha esse handle , no entanto o handle é limpo sempre que o processo termina
-		return 1;
-	}
-
-	//mapeia bloco de memoria para espaço de endereçamento
-	escrever.fileViewMap = (TCHAR*)MapViewOfFile(
-		hFileMap,
-		FILE_MAP_ALL_ACCESS,
-		0,
-		0,
-		0);
-
-	if (escrever.fileViewMap == NULL) {
-		_tprintf(TEXT("Erro no MapViewOfFile\n"));
-		return 1;
-	}
-
-
-	escrever.hEvent = CreateEvent(
-		NULL,
-		TRUE,
-		FALSE,
-		TEXT(EVENT_MESSEGER_TO_PLANES));
-
-	if (escrever.hEvent == NULL) {
-		_tprintf(TEXT("Erro no CreateEvent\n"));
-		UnmapViewOfFile(escrever.fileViewMap);
-		return 1;
-	}
-
-	escrever.hMutex = CreateMutex(
-		NULL,
-		FALSE,
-		TEXT(MUTEX_MESSEGER_TO_PLANES));
-
-	if (escrever.hMutex == NULL) {
-		_tprintf(TEXT("Erro no CreateMutex\n"));
-		UnmapViewOfFile(escrever.fileViewMap);
-		return 1;
-	}
-	escrever.terminar = 0;
-
-	// hEscrita = CreateThread(NULL, 0, ThreadEscrever, &escrever, 0, NULL);
-
-
-
-
-	while (1) {
-		menuControlador();
-		TCHAR tokenstring[50] = { 0 };
-		_fgetts(tokenstring, 50, stdin);
-		tokenstring[_tcslen(tokenstring) - 1] = '\0';
-		TCHAR* ptr;
-		TCHAR delim[] = L" ";
-		TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
-
-		TCHAR nome[100];
-		int y;
-		int x;
-		while (token != NULL)
-		{
-			//_tprintf(L"%ls\n", token);
-			if (_tcscmp(token, L"addAero") == 0) {
-				token = wcstok_s(NULL, delim, &ptr);
-				if (token != NULL) {
-					_tcscpy_s(nome, _countof(nome), token);
-					token = wcstok_s(NULL, delim, &ptr);
-					if (token != NULL) {
-						x = _tstoi(token);
-						token = wcstok_s(NULL, delim, &ptr);
-						if (token != NULL) {
-							y = _tstoi(token);
-							adicionarAeroporto(nome, x, y, listaAeroportos);
-						}
-					}
-				}
-			}
-			else if (_tcscmp(token, L"lista") == 0) {
-				listaTudo(listaAeroportos);
-			}
-			else if (_tcscmp(token, L"suspender") == 0) {
-				_putws(TEXT("suspende aceitação de novos aviões por parte dos utilizadores"));
-			}
-			else if (_tcscmp(token, L"ativar") == 0) {
-				_putws(TEXT("ativa aceitação de novos aviões por parte dos utilizadores"));
-			}
-			else if (_tcscmp(token, L"end") == 0) {
-				_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
-			}
-			token = wcstok_s(NULL, delim, &ptr);
-		}
-
-	}
 
 
 
 
 
-
-	if (hEscrita != NULL)
-		WaitForSingleObject(hEscrita, INFINITE);
+	//if (hEscrita != NULL)
+	//	WaitForSingleObject(hEscrita, INFINITE);
 
 }

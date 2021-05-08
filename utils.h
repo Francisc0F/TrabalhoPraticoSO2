@@ -4,10 +4,18 @@
 #define MAXAVIOES 100
 #define	READMAP "READMAP"
 
-#define FILE_MAP_MESSEGER_TO_PLANES "MESSEGER_TO_PLANES"
-#define EVENT_MESSEGER_TO_PLANES "EVENT_MESSEGER_TO_PLANES"
-#define MUTEX_MESSEGER_TO_PLANES "MUTEX_MESSEGER_TO_PLANES"
+#define FILE_MAP_MSG_TO_PLANES "FILE_MAP_MSG_TO_PLANES"
+#define EVENT_MSG_TO_PLANES "EVENT_MSG_TO_PLANES"
+#define MUTEX_MSG_TO_PLANES "MUTEX_MSG_TO_PLANES"
 #define NUM_CHAR_FILE_MAP 200
+
+#define FILE_MAP_MSG_TO_CONTROLER "FILE_MAP_MSG_TO_CONTROLER"
+#define SEMAPHORE_ESCRITA_MSG_TO_CONTROLER "SEMAPHORE_ESCRITA_MSG_TO_CONTROLER"
+#define SEMAPHORE_LEITURA_MSG_TO_CONTROLER "SEMAPHORE_LEITURA_MSG_TO_CONTROLER"
+#define MUTEX_PRODUTOR_MSG_TO_CONTROLER "MUTEX_PRODUTOR_MSG_TO_CONTROLER"
+#define MUTEX_CONSUMIDOR_MSG_TO_CONTROLER "MUTEX_CONSUMIDOR_MSG_TO_CONTROLER"
+
+#define TAM_BUFFER 20
 
 typedef struct t AviaoMsg, * pAviaoMsg;
 struct t {
@@ -37,3 +45,25 @@ typedef struct {
 	int terminar;
 }ThreadController;
 
+
+typedef struct {
+	TCHAR* fileViewMap;
+	HANDLE hEvent;
+	HANDLE hMutex;
+	int terminar;
+}BufferCircularLer;
+
+typedef struct {
+	TCHAR info[100];
+	int x;
+	int y;
+	int id;
+}MSGcel;
+
+typedef struct {
+	int nProdutores;
+	int nConsumidores;
+	int posE; //proxima posicao de escrita
+	int posL; //proxima posicao de leitura
+	MSGcel buffer[TAM_BUFFER]; //buffer circular em si (array de estruturas)
+}BufferCircular;
