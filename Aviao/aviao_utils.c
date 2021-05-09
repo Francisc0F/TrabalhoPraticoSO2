@@ -19,7 +19,7 @@ void proxDestino(int idAeroportoDestino) {
 	// todo 
 }
 
-void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadController* ler) {
+void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadControllerToPlane* ler) {
 	hFileMap = CreateFileMapping(
 		INVALID_HANDLE_VALUE,
 		NULL,

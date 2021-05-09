@@ -5,7 +5,7 @@
 
 void menuAviao();
 void printMSG(MSGcel cel);
-void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadController* ler);
+void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadControllerToPlane* ler);
 void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread* escreve, BOOL* primeiroProcesso);
 void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info);
 void setupAviao(int* capacidadePassageiros, int* posPorSegundo);

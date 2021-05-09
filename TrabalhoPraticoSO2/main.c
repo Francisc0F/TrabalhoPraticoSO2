@@ -11,9 +11,10 @@
 
 typedef int(__cdecl* MYPROC)(LPWSTR);
 
+#pragma region threads setup
 DWORD WINAPI ThreadEscrever(LPVOID param) {
 	TCHAR msg[NUM_CHAR_FILE_MAP];
-	ThreadController* dados = (ThreadController*)param;
+	ThreadControllerToPlane* dados = (ThreadControllerToPlane*)param;
 
 	while (!(dados->terminar)) {
 		_tprintf(TEXT("Escreve \n"));
@@ -29,10 +30,10 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 		WaitForSingleObject(dados->hMutex, INFINITE);
 
 		//limpa memoria antes de fazer a copia
-		ZeroMemory(dados->fileViewMap, NUM_CHAR_FILE_MAP * sizeof(TCHAR));
+		ZeroMemory(dados->fileViewMap, sizeof(MSGCtrlToPlane));
 
 		//copia memoria de um sitio para outro (aqui copia a mensagem escrita no terminal para o fileViewMap)
-		CopyMemory(dados->fileViewMap, msg, _tcslen(msg) * sizeof(TCHAR));
+		CopyMemory(dados->fileViewMap, msg, sizeof(MSGCtrlToPlane));
 
 		//liberto mutex
 		ReleaseMutex(dados->hMutex);
@@ -45,7 +46,6 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 	}
 	return 0;
 }
-
 
 DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 	MSGThread* dados = (MSGThread*)param;
@@ -80,16 +80,19 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
 
 		contador++;
-		
+
 		_tprintf(TEXT("C%d consumiu %s.\n"), dados->id, cel.info);
 	}
 	//_tprintf(TEXT("C%d consumiu %d items.\n"), dados->id, soma);
 
 	return 0;
 }
-
+#pragma endregion 
 
 int _tmain(int argc, TCHAR* argv[]) {
+
+#pragma region unicode setup
+
 	//UNICODE: Por defeito, a consola Windows não processa caracteres wide. 
 	//A maneira mais fácil para ter esta funcionalidade é chamar _setmode:
 #ifdef UNICODE 
@@ -97,10 +100,11 @@ int _tmain(int argc, TCHAR* argv[]) {
 	_setmode(_fileno(stdout), _O_WTEXT);
 	_setmode(_fileno(stderr), _O_WTEXT);
 #endif
+#pragma endregion 
 
 	// TODO fazer validacao com open no mutex do controlador para saber se ha outro controlador vivo
 
-	// regedit keys setup 
+#pragma region regedit keys setup
 	TCHAR key_dir[TAM] = TEXT("Software\\TRABALHOSO2\\");
 	HKEY handle = NULL; // handle para chave depois de aberta ou criada
 	DWORD handleRes = NULL;
@@ -108,7 +112,9 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 	int maxAvioes;
 	checkRegEditKeys(key_dir, handle, handleRes, TEXT("N_avioes"), &maxAvioes);
-	
+#pragma endregion 
+
+
 	Aeroporto listaAeroportos[MAXAEROPORTOS] = { 0 };
 
 
@@ -125,11 +131,9 @@ int _tmain(int argc, TCHAR* argv[]) {
 	HANDLE hThreadLeitura;
 	preparaParaLerInfoDeAvioes(&ler, &hLerFileMap);
 
-
 	hThreadLeitura = CreateThread(NULL, 0, ThreadLerBufferCircular, &ler, 0, NULL);
 
 
-	
 
 	// setup aeroportos inicias
 	adicionarAeroporto(TEXT("Lisbon"), 2, 2, listaAeroportos);
@@ -137,6 +141,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 	adicionarAeroporto(TEXT("Paris"), 20, 10, listaAeroportos);
 	adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, listaAeroportos);
 
+#pragma region menu interface
 	// menu  
 	while (1) {
 		menuControlador();
@@ -183,6 +188,10 @@ int _tmain(int argc, TCHAR* argv[]) {
 			token = wcstok_s(NULL, delim, &ptr);
 		}
 	}
+
+#pragma endregion 
+
+
 
 
 	//if (hEscrita != NULL)

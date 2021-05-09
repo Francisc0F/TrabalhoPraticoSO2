@@ -10,9 +10,10 @@
 
 typedef int(__cdecl* MYPROC)(LPWSTR);
 
+#pragma region aviao threads
 // ouvir mensagens do controller
 DWORD WINAPI ThreadReader(LPVOID param) {
-	ThreadController* dados = (ThreadController*)param;
+	ThreadControllerToPlane* dados = (ThreadControllerToPlane*)param;
 
 	while (1) {
 		_tprintf(TEXT("A ler \n"));
@@ -25,7 +26,7 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 
 		//faço o lock para o mutex
 		WaitForSingleObject(dados->hMutex, INFINITE);
-		_tprintf(TEXT("Nova msg: %s\n"), dados->fileViewMap);
+		_tprintf(TEXT("Nova msg: %s\n"), dados->fileViewMap->info);
 
 		//faço unlock do mutex
 		ReleaseMutex(dados->hMutex);
@@ -78,9 +79,11 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 
 	return 0;
 }
-
+#pragma endregion preparacao para fluxo de mensagens  aviao -> controlador , controlador -> aviao
 
 int _tmain(int argc, LPTSTR argv[]) {
+
+
 	//UNICODE: Por defeito, a consola Windows não processa caracteres wide. 
 	//A maneira mais fácil para ter esta funcionalidade é chamar _setmode:
 #ifdef UNICODE 
@@ -94,30 +97,32 @@ int _tmain(int argc, LPTSTR argv[]) {
 	int posPorSegundo = 0;
 	setupAviao(&capacidadePassageiros, &posPorSegundo);
 
-
+	// region prepara threads de leitura e escrita
+	
+	// thread para enviar mensagens pro controlador -> buffer circular
 	HANDLE hThreadWriter = NULL;
 	HANDLE hFileEscritaMap;
 	MSGThread escreve;
-	BOOL  primeiroProcesso = FALSE;
+	BOOL primeiroProcesso = FALSE;
 
 	preparaEnvioDeMensagensParaOControlador(&hFileEscritaMap, &escreve, &primeiroProcesso);
 	hThreadWriter = CreateThread(NULL, 0, ThreadWriter, &escreve, 0, NULL);
 
+	// thread para receber mensagens do controlador -> memoria partilhada acesso direto
+	HANDLE hThreadReader = NULL;
+	ThreadControllerToPlane ler;
+	HANDLE hFileLeituraMap;
+
+	preparaLeituraMSGdoAviao(&hFileLeituraMap, &ler);
+	hThreadReader = CreateThread(NULL, 0, ThreadReader, &ler, 0, NULL);
+
+	// end region prepara threads de leitura e escrita
+
+	// pedir info dos aeroportos
 	enviarMensagemParaControlador(&escreve, TEXT("aeroportos"));
 
 
-	//HANDLE hThreadReader = NULL;
-	//ThreadController ler;
-	//HANDLE hFileLeituraMap;
-
-	//preparaLeituraMSGdoAviao(&hFileLeituraMap, &ler);
-	//hThreadReader = CreateThread(NULL, 0, ThreadReader, &ler, 0, NULL);
-
-
-
-
-
-
+#pragma region menu interface
 
 
 	//while (1) {
@@ -147,7 +152,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	//	}
 	//}
 
-
+#pragma endregion 
 
 
 	// prox posicao

@@ -39,19 +39,18 @@ struct x {
 
 
 typedef struct {
-	TCHAR* fileViewMap;
-	HANDLE hEvent;
-	HANDLE hMutex;
-	int terminar;
-}ThreadController;
+	TCHAR info[100];
+	int idAviao;
+}MSGCtrlToPlane;
 
 
 typedef struct {
-	TCHAR* fileViewMap;
+	MSGCtrlToPlane* fileViewMap;
 	HANDLE hEvent;
 	HANDLE hMutex;
 	int terminar;
-}BufferCircularLer;
+}ThreadControllerToPlane;
+
 
 typedef struct {
 	TCHAR info[100];

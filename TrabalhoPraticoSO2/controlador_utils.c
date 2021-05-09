@@ -61,7 +61,7 @@ void inicializarLista(Aeroporto lista[]) {
 //}
 //
 
-void ThreadEnvioDeMsgParaAvioes(ThreadController * escrever, HANDLE *hFileMap, HANDLE *hEscrita) {
+void ThreadEnvioDeMsgParaAvioes(ThreadControllerToPlane* escrever, HANDLE *hFileMap, HANDLE *hEscrita) {
 
 
 	//mapeia ficheiro num bloco de memoria
