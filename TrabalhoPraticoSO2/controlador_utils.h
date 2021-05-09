@@ -9,3 +9,4 @@ void listaTudo(Aeroporto lista[]);
 void inicializarLista(Aeroporto lista[]);
 void ThreadEnvioDeMsgParaAvioes(ThreadController* escrever, HANDLE* hFileMap, HANDLE* hEscrita);
 void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_name, int* maxAvioes);
+void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap);

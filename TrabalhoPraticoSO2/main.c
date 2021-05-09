@@ -47,46 +47,46 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 }
 
 
-//DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
-//	BufferCircularLer* dados = (BufferCircularLer*)param;
-//	CelulaBuffer cel;
-//	int contador = 0;
-//	int soma = 0;
-//
-//	while (!dados->terminar) {
-//
-//
-//		//aqui entramos na logica da aula teorica
-//
-//		//esperamos por uma posicao para lermos
-//		WaitForSingleObject(dados->hSemLeitura, INFINITE);
-//
-//		//esperamos que o mutex esteja livre
-//		WaitForSingleObject(dados->hMutex, INFINITE);
-//
-//
-//		//vamos copiar da proxima posicao de leitura do buffer circular para a nossa variavel cel
-//		CopyMemory(&cel, &dados->memPar->buffer[dados->memPar->posL], sizeof(CelulaBuffer));
-//		dados->memPar->posL++; //incrementamos a posicao de leitura para o proximo consumidor ler na posicao seguinte
-//
-//		//se apos o incremento a posicao de leitura chegar ao fim, tenho de voltar ao inicio
-//		if (dados->memPar->posL == TAM_BUFFER)
-//			dados->memPar->posL = 0;
-//
-//		//libertamos o mutex
-//		ReleaseMutex(dados->hMutex);
-//
-//		//libertamos o semaforo. temos de libertar uma posicao de escrita
-//		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
-//
-//		contador++;
-//		soma += cel.val;
-//		_tprintf(TEXT("C%d consumiu %d.\n"), dados->id, cel.val);
-//	}
-//	_tprintf(TEXT("C%d consumiu %d items.\n"), dados->id, soma);
-//
-//	return 0;
-//}
+DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
+	MSGThread* dados = (MSGThread*)param;
+	MSGcel cel;
+	int contador = 0;
+	int soma = 0;
+
+	while (!dados->terminar) {
+
+
+		//aqui entramos na logica da aula teorica
+
+		//esperamos por uma posicao para lermos
+		WaitForSingleObject(dados->hSemLeitura, INFINITE);
+
+		//esperamos que o mutex esteja livre
+		WaitForSingleObject(dados->hMutex, INFINITE);
+
+
+		//vamos copiar da proxima posicao de leitura do buffer circular para a nossa variavel cel
+		CopyMemory(&cel, &dados->memPar->buffer[dados->memPar->posL], sizeof(MSGcel));
+		dados->memPar->posL++; //incrementamos a posicao de leitura para o proximo consumidor ler na posicao seguinte
+
+		//se apos o incremento a posicao de leitura chegar ao fim, tenho de voltar ao inicio
+		if (dados->memPar->posL == TAM_BUFFER)
+			dados->memPar->posL = 0;
+
+		//libertamos o mutex
+		ReleaseMutex(dados->hMutex);
+
+		//libertamos o semaforo. temos de libertar uma posicao de escrita
+		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
+
+		contador++;
+		
+		_tprintf(TEXT("C%d consumiu %s.\n"), dados->id, cel.info);
+	}
+	//_tprintf(TEXT("C%d consumiu %d items.\n"), dados->id, soma);
+
+	return 0;
+}
 
 
 int _tmain(int argc, TCHAR* argv[]) {
@@ -98,16 +98,17 @@ int _tmain(int argc, TCHAR* argv[]) {
 	_setmode(_fileno(stderr), _O_WTEXT);
 #endif
 
+	// TODO fazer validacao com open no mutex do controlador para saber se ha outro controlador vivo
+
 	// regedit keys setup 
 	TCHAR key_dir[TAM] = TEXT("Software\\TRABALHOSO2\\");
 	HKEY handle = NULL; // handle para chave depois de aberta ou criada
 	DWORD handleRes = NULL;
 	TCHAR key_name[TAM] = TEXT("N_avioes"); //nome do par-valor
+
 	int maxAvioes;
 	checkRegEditKeys(key_dir, handle, handleRes, TEXT("N_avioes"), &maxAvioes);
-
 	
-
 	Aeroporto listaAeroportos[MAXAEROPORTOS] = { 0 };
 
 
@@ -118,59 +119,83 @@ int _tmain(int argc, TCHAR* argv[]) {
 	//hEscrita = CreateThread(NULL, 0, ThreadEscrever, &escrever, 0, NULL);
 
 
+	// ouvir mensagens dos avioes
+	MSGThread ler;
+	HANDLE hLerFileMap;
+	HANDLE hThreadLeitura;
+	preparaParaLerInfoDeAvioes(&ler, &hLerFileMap);
+
+
+	hThreadLeitura = CreateThread(NULL, 0, ThreadLerBufferCircular, &ler, 0, NULL);
+
+
+	
+
+	// setup aeroportos inicias
+	adicionarAeroporto(TEXT("Lisbon"), 2, 2, listaAeroportos);
+	adicionarAeroporto(TEXT("Madrid"), 10, 10, listaAeroportos);
+	adicionarAeroporto(TEXT("Paris"), 20, 10, listaAeroportos);
+	adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, listaAeroportos);
+
 	// menu  
-	//while (1) {
-	//	menuControlador();
-	//	TCHAR tokenstring[50] = { 0 };
-	//	_fgetts(tokenstring, 50, stdin);
-	//	tokenstring[_tcslen(tokenstring) - 1] = '\0';
-	//	TCHAR* ptr;
-	//	TCHAR delim[] = L" ";
-	//	TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
+	while (1) {
+		menuControlador();
+		TCHAR tokenstring[50] = { 0 };
+		_fgetts(tokenstring, 50, stdin);
+		tokenstring[_tcslen(tokenstring) - 1] = '\0';
+		TCHAR* ptr = NULL;
+		TCHAR delim[] = L" ";
+		TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
 
-	//	TCHAR nome[100];
-	//	int y;
-	//	int x;
-	//	while (token != NULL)
-	//	{
-	//		//_tprintf(L"%ls\n", token);
-	//		if (_tcscmp(token, L"addAero") == 0) {
-	//			token = wcstok_s(NULL, delim, &ptr);
-	//			if (token != NULL) {
-	//				_tcscpy_s(nome, _countof(nome), token);
-	//				token = wcstok_s(NULL, delim, &ptr);
-	//				if (token != NULL) {
-	//					x = _tstoi(token);
-	//					token = wcstok_s(NULL, delim, &ptr);
-	//					if (token != NULL) {
-	//						y = _tstoi(token);
-	//						adicionarAeroporto(nome, x, y, listaAeroportos);
-	//					}
-	//				}
-	//			}
-	//		}
-	//		else if (_tcscmp(token, L"lista") == 0) {
-	//			listaTudo(listaAeroportos);
-	//		}
-	//		else if (_tcscmp(token, L"suspender") == 0) {
-	//			_putws(TEXT("suspende aceitação de novos aviões por parte dos utilizadores"));
-	//		}
-	//		else if (_tcscmp(token, L"ativar") == 0) {
-	//			_putws(TEXT("ativa aceitação de novos aviões por parte dos utilizadores"));
-	//		}
-	//		else if (_tcscmp(token, L"end") == 0) {
-	//			_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
-	//		}
-	//		token = wcstok_s(NULL, delim, &ptr);
-	//	}
-	//}
-
-
-
-
+		TCHAR nome[100];
+		int y;
+		int x;
+		while (token != NULL)
+		{
+			//_tprintf(L"%ls\n", token);
+			if (_tcscmp(token, L"addAero") == 0) {
+				token = wcstok_s(NULL, delim, &ptr);
+				if (token != NULL) {
+					_tcscpy_s(nome, _countof(nome), token);
+					token = wcstok_s(NULL, delim, &ptr);
+					if (token != NULL) {
+						x = _tstoi(token);
+						token = wcstok_s(NULL, delim, &ptr);
+						if (token != NULL) {
+							y = _tstoi(token);
+							adicionarAeroporto(nome, x, y, listaAeroportos);
+						}
+					}
+				}
+			}
+			else if (_tcscmp(token, L"lista") == 0) {
+				listaTudo(listaAeroportos);
+			}
+			else if (_tcscmp(token, L"suspender") == 0) {
+				_putws(TEXT("suspende aceitação de novos aviões por parte dos utilizadores"));
+			}
+			else if (_tcscmp(token, L"ativar") == 0) {
+				_putws(TEXT("ativa aceitação de novos aviões por parte dos utilizadores"));
+			}
+			else if (_tcscmp(token, L"end") == 0) {
+				_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
+			}
+			token = wcstok_s(NULL, delim, &ptr);
+		}
+	}
 
 
 	//if (hEscrita != NULL)
 	//	WaitForSingleObject(hEscrita, INFINITE);
+
+	if (hThreadLeitura != NULL) {
+		WaitForSingleObject(hThreadLeitura, INFINITE);
+	}
+
+
+	UnmapViewOfFile(ler.memPar);
+	//CloseHandles ... mas é feito automaticamente quando o processo termina
+
+	return 0;
 
 }

@@ -87,12 +87,12 @@ int _tmain(int argc, LPTSTR argv[]) {
 	_setmode(_fileno(stdin), _O_WTEXT);
 	_setmode(_fileno(stdout), _O_WTEXT);
 #endif
-	//HANDLE hThreadReader = NULL;
-	//ThreadController ler;
-	//HANDLE hFileLeituraMap;
-
-	//preparaLeituraMSGdoAviao(&hFileLeituraMap, &ler);
-	//hThreadReader = CreateThread(NULL, 0, ThreadReader, &ler, 0, NULL);
+	// TODO  fazer validacao com open no mutex do controlador para saber se o controlador esta vivo
+	
+	//obter dados inicias
+	int capacidadePassageiros = 0;
+	int posPorSegundo = 0;
+	setupAviao(&capacidadePassageiros, &posPorSegundo);
 
 
 	HANDLE hThreadWriter = NULL;
@@ -101,34 +101,25 @@ int _tmain(int argc, LPTSTR argv[]) {
 	BOOL  primeiroProcesso = FALSE;
 
 	preparaEnvioDeMensagensParaOControlador(&hFileEscritaMap, &escreve, &primeiroProcesso);
-
-	_tprintf(TEXT("Antes de lancar thread Escreva qualquer coisa para enviar\n"));
-	_getts_s(escreve.info, 99);
-
 	hThreadWriter = CreateThread(NULL, 0, ThreadWriter, &escreve, 0, NULL);
-	
 
-	// method enviar mensagem para controlador
-	TCHAR comando[100];
-	while (1) {
-		_tprintf(TEXT("Escreva qualquer coisa para enviar\n"));
-		_getts_s(escreve.info, 99);
-		//desbloqueia evento
-		SetEvent(escreve.hEventEnviarMSG);
-		Sleep(100);
-		ResetEvent(escreve.hEventEnviarMSG); //bloqueia evento
-	}
+	enviarMensagemParaControlador(&escreve, TEXT("aeroportos"));
 
-	if (hThreadWriter != NULL) {
-		//_tprintf(TEXT("Escreva qualquer coisa para sair ...\n"));
-		//_getts_s(comando, 100);
-	//	escreve.terminar = 1;
 
-		//esperar que a thread termine
-		WaitForSingleObject(hThreadWriter, INFINITE);
-	}
+	//HANDLE hThreadReader = NULL;
+	//ThreadController ler;
+	//HANDLE hFileLeituraMap;
 
-	
+	//preparaLeituraMSGdoAviao(&hFileLeituraMap, &ler);
+	//hThreadReader = CreateThread(NULL, 0, ThreadReader, &ler, 0, NULL);
+
+
+
+
+
+
+
+
 	//while (1) {
 	//	menuAviao();
 	//	TCHAR tokenstring[50] = { 0 };
@@ -156,54 +147,57 @@ int _tmain(int argc, LPTSTR argv[]) {
 	//	}
 	//}
 
-	//if (hThreadReader != NULL)
-	//	WaitForSingleObject(hThreadReader, INFINITE);
 
 
 
 	// prox posicao
 		 //dll
-	/*_tprintf(TEXT("Hello"));
-	TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
-	TCHAR dll[MAX] = TEXT("SO2_TP_DLL_2021.dll");
+	//TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
+	TCHAR dll[MAX] = TEXT(DLL);
 	HINSTANCE hinstLib = NULL;
 	hinstLib = LoadLibrary(dll);
 
 	MYPROC ProcAdd = NULL;
-	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;*/
+	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;
 
-	//if (hinstLib != NULL)
-	//{
+	if (hinstLib != NULL)
+	{
+
+		ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
+
+		// If the function address is valid, call the function.
+		if (NULL != ProcAdd)
+		{
+			fRunTimeLinkSuccess = TRUE;
+			int nextX = 0;
+			int nextY = 0;
+
+			int currX = 15;
+			int currY = 10;
+
+			int status = 1;
+			while (status == 1) {
+				//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
+				status = (ProcAdd)(currX, currY, 100, 30, &nextX, &nextY);
+				// status 1 mov correta, 2 erro, 0 chegou 
+				_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), currX, currY, nextX, nextY, status);
+				currX = nextX;
+				currY = nextY;
+			}
+		}
+
+		fFreeResult = FreeLibrary(hinstLib);
+		_tprintf(TEXT("Free lib"));
+	}
+
+
+	//if (hThreadWriter != NULL) {
 	//	
-	//	ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
-
-	//	// If the function address is valid, call the function.
-	//	if (NULL != ProcAdd)
-	//	{
-	//		fRunTimeLinkSuccess = TRUE;
-	//		int nextX = 15;
-	//		int nextY = 10;
-	//		/*int currX = 15;
-	//		int currY = 10;*/
-	//		int status = 1;
-	//		while (status == 1) {
-	//			//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
-	//			status = (ProcAdd)(nextX, nextY, 50, 50, &nextX, &nextY);
-	//			// status 1 mov correta, 2 erro, 0 chegou 
-	//			_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), nextX, nextY, nextX, nextY, status);
-	//		}
-	//	}
-	// //Free the DLL module.
-
-	//	fFreeResult = FreeLibrary(hinstLib);
-	//	_tprintf(TEXT("Free lib"));
+	//	WaitForSingleObject(hThreadWriter, INFINITE);
 	//}
 
-	//unsigned int map[MAX][MAX] = { 0 };
-	//unsigned int i;
 
-
-
-
+	//if (hThreadReader != NULL)
+	//	WaitForSingleObject(hThreadReader, INFINITE);
 
 }

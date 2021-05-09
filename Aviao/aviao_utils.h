@@ -1,28 +1,11 @@
 #pragma once
 
+#define DLL "SO2_TP_DLL_2021.dll"
 
-
-typedef struct {
-	TCHAR* fileViewMap;
-	HANDLE hSemEscrita;
-	HANDLE hSemLeitura;
-	HANDLE hEventEnviarMSG;
-
-	HANDLE hMutex;
-
-	int terminar;
-	TCHAR info[100];
-	int x;
-	int y;
-	int id;
-
-	BufferCircular* memPar;
-}MSGThread;
 
 void menuAviao();
-
 void printMSG(MSGcel cel);
-
 void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadController* ler);
-
 void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread* escreve, BOOL* primeiroProcesso);
+void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info);
+void setupAviao(int* capacidadePassageiros, int* posPorSegundo);

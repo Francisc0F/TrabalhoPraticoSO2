@@ -4,22 +4,22 @@
 #include "aviao_utils.h"
 
 void menuAviao() {
-    _putws(TEXT("\nprox <destino> - Proximo destino"));
-    _putws(TEXT("emb - embarcar passageiros"));
-    _putws(TEXT("init - iniciar viagem"));
-    _putws(TEXT("quit - terminar instancia de aviao"));
+	_putws(TEXT("\nprox <destino> - Proximo destino"));
+	_putws(TEXT("emb - embarcar passageiros"));
+	_putws(TEXT("init - iniciar viagem"));
+	_putws(TEXT("quit - terminar instancia de aviao"));
 }
 
 
 void printMSG(MSGcel cel) {
-    _tprintf(TEXT("info %s, x %d, y %d, \n"), cel.info, cel.x, cel.y);
+	_tprintf(TEXT("info %s, x %d, y %d, \n"), cel.info, cel.x, cel.y);
 }
 
-void proxDestino( int idAeroportoDestino) {
-      // todo 
+void proxDestino(int idAeroportoDestino) {
+	// todo 
 }
 
-void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadController*  ler) {
+void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadController* ler) {
 	hFileMap = CreateFileMapping(
 		INVALID_HANDLE_VALUE,
 		NULL,
@@ -73,15 +73,13 @@ void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadController*  ler) {
 
 }
 
-
-
-void preparaEnvioDeMensagensParaOControlador(HANDLE *hFileEscritaMap, MSGThread* escreve, BOOL * primeiroProcesso) {
+void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread* escreve, BOOL* primeiroProcesso) {
 	//criar semaforo que conta as escritas
 	escreve->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SEMAPHORE_ESCRITA_MSG_TO_CONTROLER);
 
 	//criar semaforo que conta as leituras
 	//0 porque nao ha nada para ser lido e depois podemos ir até um maximo de 10 posicoes para serem lidas
-	escreve->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SEMAPHORE_ESCRITA_MSG_TO_CONTROLER);
+	escreve->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SEMAPHORE_LEITURA_MSG_TO_CONTROLER);
 
 	//criar mutex para os produtores
 	escreve->hMutex = CreateMutex(NULL, FALSE, MUTEX_PRODUTOR_MSG_TO_CONTROLER);
@@ -147,4 +145,30 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE *hFileEscritaMap, MSGThread*
 	escreve->id = escreve->memPar->nProdutores;
 	ReleaseMutex(escreve->hMutex);
 
+}
+
+
+void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
+	_tcscpy_s(escreve->info, _countof(escreve->info), info);
+	SetEvent(escreve->hEventEnviarMSG);
+	Sleep(100);
+	ResetEvent(escreve->hEventEnviarMSG); //bloqueia evento
+}
+
+void setupAviao(int* capacidadePassageiros, int* posPorSegundo) {
+	_tprintf(TEXT("Indique cap maxima, numero posicoes por segundo -> <NcapMaxima> <NposicoesSegundo>\n"));
+	TCHAR info[100];
+	_fgetts(info, 100, stdin);
+	info[_tcslen(info) - 1] = '\0';
+
+	TCHAR* ptr;
+	TCHAR delim[] = L" ";
+	TCHAR* token = wcstok_s(info, delim, &ptr);
+	if (token != NULL) {
+		*capacidadePassageiros = _tstoi(token);
+		token = wcstok_s(info, delim, &ptr);
+		if (token != NULL) {
+			*posPorSegundo = _tstoi(token);
+		}
+	}
 }
