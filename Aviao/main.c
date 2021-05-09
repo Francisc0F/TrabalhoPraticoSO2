@@ -13,21 +13,18 @@ typedef int(__cdecl* MYPROC)(LPWSTR);
 #pragma region aviao threads
 // ouvir mensagens do controller
 DWORD WINAPI ThreadReader(LPVOID param) {
-	ThreadControllerToPlane* dados = (ThreadControllerToPlane*)param;
+	ControllerToPlane* dados = (ControllerToPlane*)param;
 
 	while (1) {
-		_tprintf(TEXT("A ler \n"));
 		//esperar até que evento desbloqueie
 		WaitForSingleObject(dados->hEvent, INFINITE);
-
 		//verifica se é preciso terminar a thread ou nao
 		if (dados->terminar)
 			break;
-
+	
 		//faço o lock para o mutex
 		WaitForSingleObject(dados->hMutex, INFINITE);
-		_tprintf(TEXT("Nova msg: %s\n"), dados->fileViewMap->info);
-
+		_tprintf(TEXT("MSG: id: %d \nmsg: %s\n"), dados->fileViewMap->idAviao,  dados->fileViewMap->info);
 		//faço unlock do mutex
 		ReleaseMutex(dados->hMutex);
 
@@ -79,7 +76,7 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 
 	return 0;
 }
-#pragma endregion preparacao para fluxo de mensagens  aviao -> controlador , controlador -> aviao
+#pragma endregion preparacao threads para fluxo de mensagens  aviao -> controlador , controlador -> aviao
 
 int _tmain(int argc, LPTSTR argv[]) {
 
@@ -110,7 +107,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 	// thread para receber mensagens do controlador -> memoria partilhada acesso direto
 	HANDLE hThreadReader = NULL;
-	ThreadControllerToPlane ler;
+	ControllerToPlane ler;
 	HANDLE hFileLeituraMap;
 
 	preparaLeituraMSGdoAviao(&hFileLeituraMap, &ler);
@@ -119,7 +116,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	// end region prepara threads de leitura e escrita
 
 	// pedir info dos aeroportos
-	enviarMensagemParaControlador(&escreve, TEXT("aeroportos"));
+	enviarMensagemParaControlador(&escreve, TEXT("aero"));
 
 
 #pragma region menu interface
@@ -154,55 +151,57 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 #pragma endregion 
 
-
+#pragma region prox viagem 
 	// prox posicao
 		 //dll
 	//TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
-	TCHAR dll[MAX] = TEXT(DLL);
-	HINSTANCE hinstLib = NULL;
-	hinstLib = LoadLibrary(dll);
+	//TCHAR dll[MAX] = TEXT(DLL);
+	//HINSTANCE hinstLib = NULL;
+	//hinstLib = LoadLibrary(dll);
 
-	MYPROC ProcAdd = NULL;
-	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;
+	//MYPROC ProcAdd = NULL;
+	//BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;
 
-	if (hinstLib != NULL)
-	{
+	//if (hinstLib != NULL)
+	//{
 
-		ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
+	//	ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
 
-		// If the function address is valid, call the function.
-		if (NULL != ProcAdd)
-		{
-			fRunTimeLinkSuccess = TRUE;
-			int nextX = 0;
-			int nextY = 0;
+	//	// If the function address is valid, call the function.
+	//	if (NULL != ProcAdd)
+	//	{
+	//		fRunTimeLinkSuccess = TRUE;
+	//		int nextX = 0;
+	//		int nextY = 0;
 
-			int currX = 15;
-			int currY = 10;
+	//		int currX = 15;
+	//		int currY = 10;
 
-			int status = 1;
-			while (status == 1) {
-				//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
-				status = (ProcAdd)(currX, currY, 100, 30, &nextX, &nextY);
-				// status 1 mov correta, 2 erro, 0 chegou 
-				_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), currX, currY, nextX, nextY, status);
-				currX = nextX;
-				currY = nextY;
-			}
-		}
+	//		int status = 1;
+	//		while (status == 1) {
+	//			//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
+	//			status = (ProcAdd)(currX, currY, 100, 30, &nextX, &nextY);
+	//			// status 1 mov correta, 2 erro, 0 chegou 
+	//			_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), currX, currY, nextX, nextY, status);
+	//			currX = nextX;
+	//			currY = nextY;
+	//		}
+	//	}
 
-		fFreeResult = FreeLibrary(hinstLib);
-		_tprintf(TEXT("Free lib"));
-	}
-
-
-	//if (hThreadWriter != NULL) {
-	//	
-	//	WaitForSingleObject(hThreadWriter, INFINITE);
+	//	fFreeResult = FreeLibrary(hinstLib);
+	//	_tprintf(TEXT("Free lib"));
 	//}
 
+#pragma endregion ->> DLL use
 
-	//if (hThreadReader != NULL)
-	//	WaitForSingleObject(hThreadReader, INFINITE);
+
+
+	if (hThreadReader != NULL)
+		WaitForSingleObject(hThreadReader, INFINITE);
+
+	if (hThreadWriter != NULL) {
+		WaitForSingleObject(hThreadWriter, INFINITE);
+	}
+
 
 }

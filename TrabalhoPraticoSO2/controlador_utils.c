@@ -27,19 +27,33 @@ void adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]) {
 
 
 
-void printAeroporto(pAeroporto aero) {
-		_tprintf(TEXT("Nome: [%s]\n"), aero->nome);
+void printAeroporto(pAeroporto aero, TCHAR* out) {
+	TCHAR aux[100];
+	if (out != NULL) {
+		_stprintf_s(aux, 100, L"Nome: [%s]\nPosicao: (%d, %d)\n", aero->nome, aero->x, aero->y);
+		_tcscat_s(out, 300, aux);
+	}
+	else {
+		_tprintf(TEXT("printf Nome: [%s]\n"), aero->nome);
 		_tprintf(TEXT("Posicao: (%d, %d)\n"), aero->x, aero->y);
+	}
 }
 
 
 
-void listaTudo(Aeroporto lista[]) {
+void listaTudo(Aeroporto lista[], TCHAR* out) {
 	for (int i = 0; i < MAXAEROPORTOS; i++) {
 		if (_tcscmp(lista[i].nome, L"") != 0) {
-			printAeroporto(&lista[i]);
+			if (out != NULL) {
+				printAeroporto(&lista[i], out);
+			}
+			else {
+				printAeroporto(&lista[i], NULL);
+			}
+
 		}
 	}
+	//_tprintf(TEXT("out ate agr [%s]\n"), out);
 }
 
 void inicializarLista(Aeroporto lista[]) {
@@ -61,8 +75,7 @@ void inicializarLista(Aeroporto lista[]) {
 //}
 //
 
-void ThreadEnvioDeMsgParaAvioes(ThreadControllerToPlane* escrever, HANDLE *hFileMap, HANDLE *hEscrita) {
-
+void ThreadEnvioDeMsgParaAvioes(ControllerToPlane* escrever, HANDLE* hFileMap, HANDLE* hEscrita) {
 
 	//mapeia ficheiro num bloco de memoria
 	hFileMap = CreateFileMapping(
@@ -70,7 +83,7 @@ void ThreadEnvioDeMsgParaAvioes(ThreadControllerToPlane* escrever, HANDLE *hFile
 		NULL,
 		PAGE_READWRITE,
 		0,
-		NUM_CHAR_FILE_MAP * sizeof(TCHAR), // alterar o tamanho do filemapping
+		sizeof(MSGCtrlToPlane), // alterar o tamanho do filemapping
 		TEXT(FILE_MAP_MSG_TO_PLANES)); //nome do file mapping, tem de ser único
 
 	if (hFileMap == NULL) {
@@ -80,7 +93,7 @@ void ThreadEnvioDeMsgParaAvioes(ThreadControllerToPlane* escrever, HANDLE *hFile
 	}
 
 	//mapeia bloco de memoria para espaço de endereçamento
-	escrever->fileViewMap = (TCHAR*)MapViewOfFile(
+	escrever->fileViewMap = (MSGCtrlToPlane*)MapViewOfFile(
 		hFileMap,
 		FILE_MAP_ALL_ACCESS,
 		0,
@@ -105,6 +118,17 @@ void ThreadEnvioDeMsgParaAvioes(ThreadControllerToPlane* escrever, HANDLE *hFile
 		return 1;
 	}
 
+	// evento pra gerir ordem de escrita
+	escrever->hEventOrdemDeEscrever = CreateEvent(
+		NULL,
+		TRUE,
+		FALSE, NULL);
+
+	if (escrever->hEventOrdemDeEscrever == NULL) {
+		_tprintf(TEXT("Erro no CreateEvent hEventOrdemDeEscrever\n"));
+		return 1;
+	}
+
 	escrever->hMutex = CreateMutex(
 		NULL,
 		FALSE,
@@ -119,7 +143,7 @@ void ThreadEnvioDeMsgParaAvioes(ThreadControllerToPlane* escrever, HANDLE *hFile
 
 }
 
-void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_name, int* maxAvioes){
+void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_name, int* maxAvioes) {
 
 	// open Or create
 	if (RegCreateKeyEx(
@@ -178,7 +202,7 @@ void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_n
 	RegCloseKey(handle);
 }
 
-void preparaParaLerInfoDeAvioes(MSGThread * ler, HANDLE * hLerFileMap) {
+void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 
 	BOOL primeiroProcesso = 0;
 	//criar semaforo que conta as escritas
@@ -241,5 +265,13 @@ void preparaParaLerInfoDeAvioes(MSGThread * ler, HANDLE * hLerFileMap) {
 	ler->memPar->nConsumidores++;
 	ler->id = ler->memPar->nConsumidores;
 	ReleaseMutex(ler->hMutex);
-	
+
+}
+
+void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info) {
+	_tcscpy_s(escreve->msgToSend.info, _countof(escreve->msgToSend.info), info);
+	escreve->msgToSend.idAviao = id;
+	SetEvent(escreve->hEventOrdemDeEscrever);
+	Sleep(100);
+	ResetEvent(escreve->hEventOrdemDeEscrever); //bloqueia evento
 }

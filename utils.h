@@ -39,17 +39,19 @@ struct x {
 
 
 typedef struct {
-	TCHAR info[100];
+	TCHAR info[500];
 	int idAviao;
 }MSGCtrlToPlane;
 
 
 typedef struct {
 	MSGCtrlToPlane* fileViewMap;
+	MSGCtrlToPlane msgToSend;
 	HANDLE hEvent;
+	HANDLE hEventOrdemDeEscrever;
 	HANDLE hMutex;
 	int terminar;
-}ThreadControllerToPlane;
+}ControllerToPlane;
 
 
 typedef struct {
@@ -69,14 +71,13 @@ typedef struct {
 
 
 
+
 typedef struct {
 	TCHAR* fileViewMap;
 	HANDLE hSemEscrita;
 	HANDLE hSemLeitura;
 	HANDLE hEventEnviarMSG;
-
 	HANDLE hMutex;
-
 	int terminar;
 	TCHAR info[100];
 	int x;
@@ -85,3 +86,11 @@ typedef struct {
 
 	BufferCircular* memPar;
 }MSGThread;
+
+
+
+typedef struct {
+	MSGThread* leitura;
+	ControllerToPlane * escrita;
+	Aeroporto* listaAeroportos;
+}ThreadsControler; 

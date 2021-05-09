@@ -11,20 +11,16 @@
 
 typedef int(__cdecl* MYPROC)(LPWSTR);
 
-#pragma region threads setup
+#pragma region threads declaration
+
+#pragma region escrever na memoria partilhada
 DWORD WINAPI ThreadEscrever(LPVOID param) {
-	TCHAR msg[NUM_CHAR_FILE_MAP];
-	ThreadControllerToPlane* dados = (ThreadControllerToPlane*)param;
+	ThreadsControler* threadControl = (ThreadsControler*)param;
+	ControllerToPlane* dados = threadControl->escrita;
 
 	while (!(dados->terminar)) {
-		_tprintf(TEXT("Escreve \n"));
-
-		_fgetts(msg, NUM_CHAR_FILE_MAP, stdin);
-		msg[_tcslen(msg) - 1] = '\0'; //terminamos a string de maneira correta
-
-		if (_tcscmp(msg, TEXT("fim")) == 0)
-			dados->terminar = 1;
-
+		// espera evento ordem de enviar mensagem
+		WaitForSingleObject(dados->hEventOrdemDeEscrever, INFINITE);
 
 		//faço lock ao mutex
 		WaitForSingleObject(dados->hMutex, INFINITE);
@@ -32,13 +28,14 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 		//limpa memoria antes de fazer a copia
 		ZeroMemory(dados->fileViewMap, sizeof(MSGCtrlToPlane));
 
-		//copia memoria de um sitio para outro (aqui copia a mensagem escrita no terminal para o fileViewMap)
-		CopyMemory(dados->fileViewMap, msg, sizeof(MSGCtrlToPlane));
+		//copia memoria de um sitio para outro 
+		CopyMemory(dados->fileViewMap, &dados->msgToSend, sizeof(MSGCtrlToPlane));
 
 		//liberto mutex
 		ReleaseMutex(dados->hMutex);
 
-		//desbloqueia evento
+		//evento ordem de leitura
+		//desbloqueia evento   
 		SetEvent(dados->hEvent);
 		Sleep(500);
 
@@ -47,15 +44,16 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 	return 0;
 }
 
+#pragma endregion 
+
+#pragma region buffer circular leitura 
 DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
-	MSGThread* dados = (MSGThread*)param;
+	ThreadsControler* threadControl = (ThreadsControler*)param;
+	MSGThread* dados = threadControl->leitura;
 	MSGcel cel;
-	int contador = 0;
 	int soma = 0;
 
 	while (!dados->terminar) {
-
-
 		//aqui entramos na logica da aula teorica
 
 		//esperamos por uma posicao para lermos
@@ -79,14 +77,25 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 		//libertamos o semaforo. temos de libertar uma posicao de escrita
 		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
 
-		contador++;
-
+		// trata mensagem
 		_tprintf(TEXT("C%d consumiu %s.\n"), dados->id, cel.info);
-	}
-	//_tprintf(TEXT("C%d consumiu %d items.\n"), dados->id, soma);
 
+		if (_tcscmp(cel.info, L"aero") == 0) {
+			_tprintf(TEXT("Enviou %s.\n"), cel.info);
+			TCHAR info[400]= TEXT("");
+			listaTudo(threadControl->listaAeroportos, info);
+			enviarMensagemParaAviao(dados->id, threadControl->escrita, info);
+		}
+		else if (_tcscmp(cel.info, L"emb") == 0) {
+			//	enviarMensagemParaAviao(dados->id, threadControl->escrita, TEXT("TESTE"));
+		}
+		
+	}
+	_tprintf(TEXT("fim thread leitura \n"));
 	return 0;
 }
+#pragma endregion 
+
 #pragma endregion 
 
 int _tmain(int argc, TCHAR* argv[]) {
@@ -114,28 +123,30 @@ int _tmain(int argc, TCHAR* argv[]) {
 	checkRegEditKeys(key_dir, handle, handleRes, TEXT("N_avioes"), &maxAvioes);
 #pragma endregion 
 
-
+#pragma region threads setup
 	Aeroporto listaAeroportos[MAXAEROPORTOS] = { 0 };
+	ThreadsControler controler;
 
-
-	//ThreadController escrever;
-	//HANDLE hFileMap;
-	//HANDLE hEscrita;
-	//ThreadEnvioDeMsgParaAvioes(&escrever, &hFileMap, &hEscrita);
-	//hEscrita = CreateThread(NULL, 0, ThreadEscrever, &escrever, 0, NULL);
-
-
+	controler.listaAeroportos = listaAeroportos;
 	// ouvir mensagens dos avioes
 	MSGThread ler;
 	HANDLE hLerFileMap;
 	HANDLE hThreadLeitura;
-	preparaParaLerInfoDeAvioes(&ler, &hLerFileMap);
 
-	hThreadLeitura = CreateThread(NULL, 0, ThreadLerBufferCircular, &ler, 0, NULL);
+	controler.leitura = &ler;
+	preparaParaLerInfoDeAvioes(controler.leitura, &hLerFileMap);
+	hThreadLeitura = CreateThread(NULL, 0, ThreadLerBufferCircular, &controler, 0, NULL);
 
+	ControllerToPlane escrever;
+	HANDLE hFileMap;
+	HANDLE hEscrita;
+	controler.escrita = &escrever;
+	ThreadEnvioDeMsgParaAvioes(controler.escrita, &hFileMap, &hEscrita);
+	hEscrita = CreateThread(NULL, 0, ThreadEscrever, &controler, 0, NULL);
 
-
+#pragma endregion 
 	// setup aeroportos inicias
+
 	adicionarAeroporto(TEXT("Lisbon"), 2, 2, listaAeroportos);
 	adicionarAeroporto(TEXT("Madrid"), 10, 10, listaAeroportos);
 	adicionarAeroporto(TEXT("Paris"), 20, 10, listaAeroportos);
@@ -174,7 +185,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 				}
 			}
 			else if (_tcscmp(token, L"lista") == 0) {
-				listaTudo(listaAeroportos);
+				listaTudo(listaAeroportos, NULL);
 			}
 			else if (_tcscmp(token, L"suspender") == 0) {
 				_putws(TEXT("suspende aceitação de novos aviões por parte dos utilizadores"));
@@ -192,17 +203,15 @@ int _tmain(int argc, TCHAR* argv[]) {
 #pragma endregion 
 
 
-
-
-	//if (hEscrita != NULL)
-	//	WaitForSingleObject(hEscrita, INFINITE);
+	if (hEscrita != NULL)
+		WaitForSingleObject(hEscrita, INFINITE);
 
 	if (hThreadLeitura != NULL) {
 		WaitForSingleObject(hThreadLeitura, INFINITE);
 	}
 
 
-	UnmapViewOfFile(ler.memPar);
+	//UnmapViewOfFile(ler.memPar);
 	//CloseHandles ... mas é feito automaticamente quando o processo termina
 
 	return 0;

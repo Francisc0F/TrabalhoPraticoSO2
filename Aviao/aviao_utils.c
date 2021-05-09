@@ -19,14 +19,14 @@ void proxDestino(int idAeroportoDestino) {
 	// todo 
 }
 
-void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadControllerToPlane* ler) {
+void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane* ler) {
 	hFileMap = CreateFileMapping(
 		INVALID_HANDLE_VALUE,
 		NULL,
 		PAGE_READWRITE,
 		0,
-		NUM_CHAR_FILE_MAP * sizeof(TCHAR),
-		TEXT(FILE_MAP_MSG_TO_PLANES));
+		sizeof(MSGCtrlToPlane), // alterar o tamanho do filemapping
+		TEXT(FILE_MAP_MSG_TO_PLANES)); //nome do file mapping, tem de ser único
 
 	if (hFileMap == NULL) {
 		_tprintf(TEXT("Erro no CreateFileMapping\n"));
@@ -35,7 +35,7 @@ void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ThreadControllerToPlane* ler) {
 	}
 
 	//mapeia bloco de memoria para espaço de endereçamento
-	ler->fileViewMap = (TCHAR*)MapViewOfFile(
+	ler->fileViewMap = (MSGCtrlToPlane*)MapViewOfFile(
 		hFileMap,
 		FILE_MAP_ALL_ACCESS,
 		0,
