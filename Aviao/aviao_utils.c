@@ -155,7 +155,8 @@ void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
 	ResetEvent(escreve->hEventEnviarMSG); //bloqueia evento
 }
 
-void setupAviao(int* capacidadePassageiros, int* posPorSegundo) {
+
+void setupAviao(int* capacidadePassageiros, int* posPorSegundo, MSGThread *  escreve) {
 	_tprintf(TEXT("Indique cap maxima, numero posicoes por segundo -> <NcapMaxima> <NposicoesSegundo>\n"));
 	TCHAR info[100];
 	_fgetts(info, 100, stdin);
@@ -171,4 +172,20 @@ void setupAviao(int* capacidadePassageiros, int* posPorSegundo) {
 			*posPorSegundo = _tstoi(token);
 		}
 	}
+	// envio de info do aeroporto do aviao
+	_tprintf(TEXT("Escolha da Lista, o numero do aeroporto onde comecar\n"));
+	enviarMensagemParaControlador(escreve, TEXT("aero"));
+
+
+	TCHAR idAero[100]; 
+	_fgetts(idAero, 100, stdin);
+	idAero[_tcslen(idAero) - 1] = '\0';
+
+	// envio de info do aviao  -> adiciona aviao
+	escreve->idAeroporto = _tstoi(idAero);
+	escreve->capacidadePassageiros = *capacidadePassageiros;
+	escreve->posPorSegundo = *posPorSegundo;
+	enviarMensagemParaControlador(escreve, TEXT("info"));
 }
+
+

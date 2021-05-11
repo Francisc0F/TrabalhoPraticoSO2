@@ -18,6 +18,7 @@ void adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]) {
 	for (int i = 0; i < MAXAEROPORTOS; i++) {
 		if (_tcscmp(lista[i].nome, L"") == 0) {
 			_tcscpy_s(lista[i].nome, _countof(lista[i].nome), nome);
+			lista[i].id = i + 1;
 			lista[i].x = x;
 			lista[i].y = y;
 			break;
@@ -30,15 +31,65 @@ void adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]) {
 void printAeroporto(pAeroporto aero, TCHAR* out) {
 	TCHAR aux[100];
 	if (out != NULL) {
-		_stprintf_s(aux, 100, L"Nome: [%s]\nPosicao: (%d, %d)\n", aero->nome, aero->x, aero->y);
+		_stprintf_s(aux, 100, L"\nid: [%d] \nNome: [%s]\nPosicao: (%d, %d)\n",aero->id, aero->nome, aero->x, aero->y);
 		_tcscat_s(out, 300, aux);
 	}
 	else {
-		_tprintf(TEXT("printf Nome: [%s]\n"), aero->nome);
+		_tprintf(TEXT("\nid: [%d]\n"), aero->id);
+		_tprintf(TEXT("Nome: [%s]\n"), aero->nome);
 		_tprintf(TEXT("Posicao: (%d, %d)\n"), aero->x, aero->y);
 	}
 }
 
+void adicionarAviao(int id,int n_passag, int max_passag, int posPorSegundo, int idAero,  Aviao lista[]) {
+	for (int i = 0; i < MAXAVIOES; i++) {
+		if(lista[i].id == 0){
+			lista[i].id = id;
+			lista[i].idAeroporto = idAero;
+			lista[i].n_passag = n_passag;
+			lista[i].max_passag = max_passag;
+			lista[i].posPorSegundo = posPorSegundo;
+			break;
+		}
+	}
+}
+
+int getAeroporto(int id, Aeroporto lista[]) {
+	for (int i = 0; i < MAXAEROPORTOS; i++) {
+		if (lista[i].id == id) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void printAviao(Aviao* aviao, TCHAR* out) {
+	TCHAR aux[100];
+	if (out != NULL) {
+		_stprintf_s(aux, 100, L"\n id: [%d]\n IdAeroPorto atual: %d\n n_passag: %d\n max_passag: %d\n posPorSegundo: %d\n",
+			aviao->id, aviao->idAeroporto, aviao->n_passag, aviao->max_passag, aviao->posPorSegundo);
+		_tcscat_s(out, 300, aux);
+	}
+	else {
+		_tprintf(TEXT("\n id: [%d]\n IdAeroPorto atual: %d\n n_passag: %d\n max_passag: %d\n posPorSegundo: %d\n"),
+			aviao->id, aviao->idAeroporto, aviao->n_passag, aviao->max_passag, aviao->posPorSegundo);
+	}
+}
+
+void listaAvioes(Aviao lista[], TCHAR* out) {
+	for (int i = 0; i < MAXAVIOES; i++) {
+		if (lista[i].id != 0 ) {
+			if (out != NULL) {
+				printAviao(&lista[i], out);
+			}
+			else {
+				printAviao(&lista[i], NULL);
+			}
+
+		}
+	}
+	//_tprintf(TEXT("out ate agr [%s]\n"), out);
+}
 
 
 void listaTudo(Aeroporto lista[], TCHAR* out) {

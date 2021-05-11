@@ -26,12 +26,16 @@ struct t {
 typedef struct c Aviao, * pAviao;
 struct c {
 	int id;
+	int idAeroporto;
 	int n_passag;
+	int max_passag;
+	int posPorSegundo;
 };
 
 typedef struct x Aeroporto, * pAeroporto;
 struct x {
 	TCHAR nome[100];
+	int id;
 	int x;
 	int y;
 	Aviao listaAvioes[MAXAVIOESAEROPORTO];
@@ -50,6 +54,7 @@ typedef struct {
 	HANDLE hEvent;
 	HANDLE hEventOrdemDeEscrever;
 	HANDLE hMutex;
+	TCHAR ultimaMsg[500];
 	int terminar;
 }ControllerToPlane;
 
@@ -59,6 +64,7 @@ typedef struct {
 	int x;
 	int y;
 	int id;
+	Aviao aviao;
 }MSGcel;
 
 typedef struct {
@@ -82,6 +88,9 @@ typedef struct {
 	TCHAR info[100];
 	int x;
 	int y;
+	int capacidadePassageiros;
+	int posPorSegundo;
+	int idAeroporto;
 	int id;
 
 	BufferCircular* memPar;
@@ -93,4 +102,5 @@ typedef struct {
 	MSGThread* leitura;
 	ControllerToPlane * escrita;
 	Aeroporto* listaAeroportos;
+	Aviao * avioes;
 }ThreadsControler; 

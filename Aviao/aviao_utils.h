@@ -8,4 +8,4 @@ void printMSG(MSGcel cel);
 void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane * ler);
 void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread* escreve, BOOL* primeiroProcesso);
 void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info);
-void setupAviao(int* capacidadePassageiros, int* posPorSegundo);
+void setupAviao(int* capacidadePassageiros, int* posPorSegundo, MSGThread* escreve);

@@ -5,6 +5,12 @@
 
 void menuControlador();
 
+void adicionarAviao(int id, int n_passag, int max_passag, int posPorSegundo, int idAero, Aviao lista[]);
+void listaAvioes(Aviao lista[], TCHAR* out);
+
+int getAeroporto(int id, Aeroporto lista[]);
+
+
 void adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]);
 void listaTudo(Aeroporto lista[], TCHAR* out);
 void inicializarLista(Aeroporto lista[]);
