@@ -15,7 +15,7 @@ typedef int(__cdecl* MYPROC)(LPWSTR);
 
 #pragma region escrever na memoria partilhada
 DWORD WINAPI ThreadEscrever(LPVOID param) {
-	ThreadsControler* threadControl = (ThreadsControler*)param;
+	ThreadsControlerControlador* threadControl = (ThreadsControlerControlador*)param;
 	ControllerToPlane* dados = threadControl->escrita;
 
 	while (!(dados->terminar)) {
@@ -48,7 +48,7 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 
 #pragma region buffer circular leitura 
 DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
-	ThreadsControler* threadControl = (ThreadsControler*)param;
+	ThreadsControlerControlador* threadControl = (ThreadsControlerControlador*)param;
 	MSGThread* dados = threadControl->leitura;
 	MSGcel cel;
 	int soma = 0;
@@ -77,37 +77,36 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 		//libertamos o semaforo. temos de libertar uma posicao de escrita
 		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
 
+		_tprintf(TEXT("Aviao: %d msg: %s\n"), cel.aviao.id, cel.info);
 		// trata mensagem
-		_tprintf(TEXT("C%d consumiu %s.\n"), dados->id, cel.info);
 
-		if (_tcscmp(cel.info, L"info") == 0) {
+		if (_tcscmp(cel.info, TEXT("info") ) == 0) {
 			adicionarAviao(cel.id, 0, cel.aviao.max_passag, cel.aviao.posPorSegundo, cel.aviao.idAeroporto, threadControl->avioes);
 			enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("sucesso"));
-		}if (_tcscmp(cel.info, L"aero") == 0) {
+		}if (_tcscmp(cel.info, TEXT("aero")) == 0) {
 			_tprintf(TEXT("Enviou %s.\n"), cel.info);
 			TCHAR info[400]= TEXT("");
 			listaTudo(threadControl->listaAeroportos, info);
 			enviarMensagemParaAviao(cel.id, threadControl->escrita, info);
 		}
 		else {
-			TCHAR* ptr;
-			TCHAR delim[] = L" ";
-			TCHAR* token = wcstok_s(cel.info, delim, &ptr);
-			if (_tcscmp(token, L"prox") == 0) {
-				token = wcstok_s(cel.info, delim, &ptr);
-				if (token != NULL) {
-					int proxDestino = _tcstol(token, &garbage, 0);
-					switch (errno) {
-					case ERANGE:
-						enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("ERANGE"));
-						return 1;
-						// host-specific (GNU/Linux in my case)
-					case EINVAL:
-						enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("EINVAL"));
-						return 1;
-					}
-				
-					if (getAeroporto(proxDestino, threadControl->listaAeroportos) > 0) {
+			TCHAR* nextToken;
+			TCHAR* delim = L" ";
+			TCHAR* token = _tcstok_s(cel.info, delim, &nextToken);
+			if (_tcscmp(token, TEXT("prox")) == 0) {
+				if (nextToken != NULL) {
+					int proxDestino = _tcstol(nextToken, &garbage, 0);
+					//switch (errno) {
+					//case ERANGE:
+					//	enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("ERANGE"));
+					//	return 1;
+					//	// host-specific (GNU/Linux in my case)
+					//case EINVAL:
+					//	enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("EINVAL"));
+					//	return 1;
+					//}
+					_tprintf(TEXT("proxDestino %d.\n"), proxDestino);
+					if (getAeroporto(proxDestino, threadControl->listaAeroportos) >= 0) {
 						enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("sucesso"));
 					}
 					else {
@@ -157,7 +156,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 	Aeroporto aeroportos[MAXAEROPORTOS] = { 0 };
 	Aviao avioes[MAXAVIOES] = { 0 };
 
-	ThreadsControler controler;
+	ThreadsControlerControlador controler;
 	controler.listaAeroportos = aeroportos;
 	controler.avioes = avioes;
 

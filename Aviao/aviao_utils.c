@@ -156,7 +156,7 @@ void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
 }
 
 
-void setupAviao(int* capacidadePassageiros, int* posPorSegundo, MSGThread *  escreve) {
+void setupAviao(int* capacidadePassageiros, int* posPorSegundo, ThreadsControlerAviao*  control) {
 	_tprintf(TEXT("Indique cap maxima, numero posicoes por segundo -> <NcapMaxima> <NposicoesSegundo>\n"));
 	TCHAR info[100];
 	_fgetts(info, 100, stdin);
@@ -174,18 +174,19 @@ void setupAviao(int* capacidadePassageiros, int* posPorSegundo, MSGThread *  esc
 	}
 	// envio de info do aeroporto do aviao
 	_tprintf(TEXT("Escolha da Lista, o numero do aeroporto onde comecar\n"));
-	enviarMensagemParaControlador(escreve, TEXT("aero"));
-
+	enviarMensagemParaControlador(control->escrita, TEXT("aero"));
+	WaitForSingleObject(control->leitura->hEvent, INFINITE);
+	_tprintf(TEXT("controlador: %s\n"), control->leitura->ultimaMsg);
 
 	TCHAR idAero[100]; 
 	_fgetts(idAero, 100, stdin);
 	idAero[_tcslen(idAero) - 1] = '\0';
 
-	// envio de info do aviao  -> adiciona aviao
-	escreve->idAeroporto = _tstoi(idAero);
-	escreve->capacidadePassageiros = *capacidadePassageiros;
-	escreve->posPorSegundo = *posPorSegundo;
-	enviarMensagemParaControlador(escreve, TEXT("info"));
+	// envio de info do aviao  -> adiciona aviao no controlador
+	control->escrita->idAeroporto = _tstoi(idAero);
+	control->escrita->capacidadePassageiros = *capacidadePassageiros;
+	control->escrita->posPorSegundo = *posPorSegundo;
+	enviarMensagemParaControlador(control->escrita, TEXT("info"));
 }
 
 

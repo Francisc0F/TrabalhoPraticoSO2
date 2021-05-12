@@ -3,6 +3,16 @@
 #include "../utils.h"
 #define TAM 200
 
+
+typedef struct {
+	MSGThread* leitura;
+	ControllerToPlane* escrita;
+	Aeroporto* listaAeroportos;
+	Aviao* avioes;
+}ThreadsControlerControlador;
+
+
+
 void menuControlador();
 
 void adicionarAviao(int id, int n_passag, int max_passag, int posPorSegundo, int idAero, Aviao lista[]);

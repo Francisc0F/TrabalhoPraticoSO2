@@ -97,10 +97,3 @@ typedef struct {
 }MSGThread;
 
 
-
-typedef struct {
-	MSGThread* leitura;
-	ControllerToPlane * escrita;
-	Aeroporto* listaAeroportos;
-	Aviao * avioes;
-}ThreadsControler; 
