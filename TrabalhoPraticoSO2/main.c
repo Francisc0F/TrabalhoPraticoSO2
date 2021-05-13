@@ -193,6 +193,14 @@ int _tmain(int argc, TCHAR* argv[]) {
 	adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
 	adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
 
+#pragma region setup lista de posicoes em mapa partilhado
+	HANDLE hMapaDePosicoesPartilhada = NULL;
+	setupMapaPartilhado(&hMapaDePosicoesPartilhada, maxAvioes);
+	
+	//mapa de avioes
+	Aviao * mapaAvioesPartilhado = (Aviao*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+#pragma endregion
+
 #pragma region menu interface
 	// menu  
 	while (1) {
@@ -237,7 +245,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 				_putws(TEXT("ativa aceitação de novos aviões por parte dos utilizadores"));
 			}
 			else if (_tcscmp(token, L"end") == 0) {
-				_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
+				//_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
 			}
 			token = wcstok_s(NULL, delim, &ptr);
 		}

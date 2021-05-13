@@ -30,6 +30,9 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 			_tcscpy_s(dados->ultimaMsg, _countof(dados->ultimaMsg), dados->fileViewMap->info);
 			//_tprintf(TEXT("MSG: id: %d \nmsg: %s\n"), dados->fileViewMap->idAviao, dados->fileViewMap->info);
 		}
+		else if (dados->fileViewMap->idAviao == -1) {
+			_tprintf(TEXT("Notificação Geral: %s\n"), dados->fileViewMap->info);
+		}
 		ReleaseMutex(dados->hMutex);
 
 		Sleep(1000);
@@ -85,6 +88,16 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 #pragma endregion declaracao threads para fluxo de mensagens  aviao -> controlador , controlador -> aviao
 
 int _tmain(int argc, LPTSTR argv[]) {
+
+	HANDLE hMapaDePosicoesPartilhada;
+	int controladorDisponivel = abrirMapaPartilhado(&hMapaDePosicoesPartilhada);
+	if (controladorDisponivel == 1) {
+		_tprintf(TEXT("Aviao terminou.\n"));
+		TCHAR cmd[23];
+		_fgetts(cmd, 23, stdin);
+		return -1;
+	}
+	Aviao* mapaAvioesPartilhado = (Aviao*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
 
 	HANDLE hSem = CreateSemaphore(NULL, 1, 1, SEMAPHORE_NUM_AVIOES);
 	if (hSem == NULL) {

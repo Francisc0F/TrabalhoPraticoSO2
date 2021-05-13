@@ -31,3 +31,5 @@ void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap);
 
 void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info);
 void printAeroporto(pAeroporto aero, TCHAR* out);
+
+void setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, int maxAvioes);

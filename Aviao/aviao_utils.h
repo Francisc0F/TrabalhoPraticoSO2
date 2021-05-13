@@ -13,3 +13,4 @@ void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane * ler);
 void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread* escreve, BOOL* primeiroProcesso);
 void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info);
 void setupAviao(int* capacidadePassageiros, int* posPorSegundo, ThreadsControlerAviao* escreve);
+int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada);

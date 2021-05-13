@@ -189,4 +189,11 @@ void setupAviao(int* capacidadePassageiros, int* posPorSegundo, ThreadsControler
 	enviarMensagemParaControlador(control->escrita, TEXT("info"));
 }
 
-
+int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada) {
+	hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
+	if (hMapaDePosicoesPartilhada == NULL) {
+			_tprintf(TEXT("Controlador nao esta disponivel.\n"));
+			return 1;
+	}
+	return 0;
+}

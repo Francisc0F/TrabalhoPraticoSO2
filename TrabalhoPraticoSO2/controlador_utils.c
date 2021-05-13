@@ -252,6 +252,25 @@ void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_n
 	RegCloseKey(handle);
 }
 
+void setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, int maxAvioes) {
+	 hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
+	if (hMapaDePosicoesPartilhada == NULL) {
+
+		hMapaDePosicoesPartilhada = CreateFileMapping(
+			INVALID_HANDLE_VALUE,
+			NULL,
+			PAGE_READWRITE,
+			0,
+			sizeof(Aviao) * maxAvioes,
+			MAPA_PARTILHADO);
+
+		if (hMapaDePosicoesPartilhada == NULL) {
+			_tprintf(TEXT("Erro no hMapaDePosicoesPartilhada\n"));
+			return -1;
+		}
+	}
+}
+
 void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 
 	BOOL primeiroProcesso = 0;
@@ -316,6 +335,14 @@ void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 	ler->id = ler->memPar->nConsumidores;
 	ReleaseMutex(ler->hMutex);
 
+}
+
+void enviarMensagemBroadCast(ControllerToPlane* escreve, TCHAR* info) {
+	_tcscpy_s(escreve->msgToSend.info, _countof(escreve->msgToSend.info), info);
+	escreve->msgToSend.idAviao = -1;
+	SetEvent(escreve->hEventOrdemDeEscrever);
+	Sleep(100);
+	ResetEvent(escreve->hEventOrdemDeEscrever); //bloqueia evento
 }
 
 void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info) {
