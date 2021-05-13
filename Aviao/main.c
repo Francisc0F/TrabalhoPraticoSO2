@@ -75,7 +75,7 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 		ReleaseSemaphore(dados->hSemLeitura, 1, NULL);
 
 		//_tprintf(TEXT("Aviao %d enviou \n"), dados->id);
-		printMSG(cel);
+		//printMSG(cel);
 		Sleep(1000);
 	}
 
@@ -86,6 +86,14 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 
 int _tmain(int argc, LPTSTR argv[]) {
 
+	HANDLE hSem = CreateSemaphore(NULL, 1, 1, SEMAPHORE_NUM_AVIOES);
+	if (hSem == NULL) {
+		_tprintf(TEXT("Erro no CreateSemaphore controloDeNumeroDeAvioes\n"));
+		return -1;
+	}
+
+	_tprintf(TEXT("Aguarda ordem de entrada do controlador...\n"));
+	WaitForSingleObject(hSem, INFINITE);
 
 	//UNICODE: Por defeito, a consola Windows não processa caracteres wide. 
 	//A maneira mais fácil para ter esta funcionalidade é chamar _setmode:
@@ -150,12 +158,15 @@ int _tmain(int argc, LPTSTR argv[]) {
 					//_tprintf(TEXT("token %s\n"), nextToken);
 
 					enviarMensagemParaControlador(&escreve, msg);
-					_tprintf(TEXT("Próximo destino definido.\n"));
+					
 					WaitForSingleObject(ler.hEvent, INFINITE);
 					_tprintf(TEXT("controlador: %s\n"), ler.ultimaMsg);
+					if (_tcscmp(ler.ultimaMsg, L"erro") > 0) {
+						_tprintf(TEXT("Próximo destino definido.\n"));
+					}
 				}
 			}
-			else if (_tcscmp(token, L"emb") == 0) {
+			else if (_tcscmp(token, TEXT("emb")) == 0) {
 				// todo
 				_tprintf(TEXT("Embarcar passageiros.\n"));
 			}

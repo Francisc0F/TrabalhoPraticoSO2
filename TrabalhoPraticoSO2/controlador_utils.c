@@ -242,14 +242,13 @@ void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_n
 		) != ERROR_SUCCESS) {
 			_tprintf(TEXT("O atributo nao foi alterado nem criado! ERRO! %s"), key_name);
 		}
-
+		*maxAvioes = _tstoi(key_value);
 	}
 	else {
 		*maxAvioes = _tstoi(key_value);
 		///_tprintf(TEXT("Atributo [%s] foi encontrado! value [%d]\n"), key_name, *maxAvioes);
-		_tprintf(TEXT("Max avioes: %d\n"), *maxAvioes);
 	}
-
+	_tprintf(TEXT("Max avioes: %d\n"), *maxAvioes);
 	RegCloseKey(handle);
 }
 

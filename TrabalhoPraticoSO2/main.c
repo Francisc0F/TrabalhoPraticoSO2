@@ -148,7 +148,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 	DWORD handleRes = NULL;
 	TCHAR key_name[TAM] = TEXT("N_avioes"); //nome do par-valor
 
-	int maxAvioes;
+	int maxAvioes = 0;
 	checkRegEditKeys(key_dir, handle, handleRes, TEXT("N_avioes"), &maxAvioes);
 #pragma endregion 
 
@@ -159,6 +159,15 @@ int _tmain(int argc, TCHAR* argv[]) {
 	ThreadsControlerControlador controler;
 	controler.listaAeroportos = aeroportos;
 	controler.avioes = avioes;
+
+#pragma region semaphore de controlo do numero de avioes
+	HANDLE controloDeNumeroDeAvioes = CreateSemaphore(NULL, maxAvioes, maxAvioes, SEMAPHORE_NUM_AVIOES);
+	if (controloDeNumeroDeAvioes == NULL) {
+		_tprintf(TEXT("Erro no CreateSemaphore controloDeNumeroDeAvioes\n"));
+		return -1;
+	}
+#pragma endregion 
+
 
 	// ouvir mensagens dos avioes
 	MSGThread ler;
