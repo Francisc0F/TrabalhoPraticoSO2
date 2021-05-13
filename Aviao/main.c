@@ -151,7 +151,8 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 #pragma region menu aviao
 	int proxDestino = 0;
-
+	int proxDestinoX = -1;
+	int proxDestinoY = -1;
 	while (1) {
 		menuAviao();
 		TCHAR tokenstring[100];
@@ -173,7 +174,16 @@ int _tmain(int argc, LPTSTR argv[]) {
 					enviarMensagemParaControlador(&escreve, msg);
 					
 					WaitForSingleObject(ler.hEvent, INFINITE);
+					TCHAR cords[10];
+					_tcscpy_s(cords, _countof(cords), ler.ultimaMsg);
+
+					TCHAR * cordY;
+					TCHAR* cordX = _tcstok_s(cords, delim, &cordY);
+					proxDestinoX = _tstoi(cords);
+					proxDestinoY = _tstoi(cordY);
 					_tprintf(TEXT("controlador: %s\n"), ler.ultimaMsg);
+
+					_tprintf(TEXT("X:%d  Y:%d\n"), proxDestinoX, proxDestinoY);
 					if (_tcscmp(ler.ultimaMsg, L"erro") > 0) {
 						_tprintf(TEXT("Próximo destino definido.\n"));
 					}

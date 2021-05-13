@@ -96,18 +96,26 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 			if (_tcscmp(token, TEXT("prox")) == 0) {
 				if (nextToken != NULL) {
 					int proxDestino = _tcstol(nextToken, &garbage, 0);
-					//switch (errno) {
-					//case ERANGE:
-					//	enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("ERANGE"));
-					//	return 1;
-					//	// host-specific (GNU/Linux in my case)
-					//case EINVAL:
-					//	enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("EINVAL"));
-					//	return 1;
-					//}
-					_tprintf(TEXT("proxDestino %d.\n"), proxDestino);
-					if (getAeroporto(proxDestino, threadControl->listaAeroportos) >= 0) {
-						enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("sucesso"));
+				
+
+					int index = getAeroporto(proxDestino, threadControl->listaAeroportos);
+					if (index >= 0) {
+						_tprintf(TEXT("Aviao %d vai partir para %s.\n"), cel.id, threadControl->listaAeroportos[index].nome);
+						TCHAR send[100] = { 0 };
+
+						TCHAR cordX[100];
+						TCHAR cordY[100];
+
+						_itot_s(threadControl->listaAeroportos[index].x, cordX, _countof(send), 10);
+				
+						_itot_s(threadControl->listaAeroportos[index].y, cordY, _countof(send),  10);
+
+						_tcscat_s(send, 100, cordX);
+						_tcscat_s(send, 100, TEXT(" "));
+						_tcscat_s(send, 100, cordY);
+						send[_tcslen(send)] = '\0';
+
+						enviarMensagemParaAviao(cel.id, threadControl->escrita, send);
 					}
 					else {
 						enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("erro"));
