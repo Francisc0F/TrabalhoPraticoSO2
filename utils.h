@@ -24,7 +24,6 @@
 
 
 
-
 typedef struct t AviaoMsg, * pAviaoMsg;
 struct t {
 	int id;
@@ -35,9 +34,18 @@ typedef struct c Aviao, * pAviao;
 struct c {
 	int id;
 	int idAeroporto;
+
 	int n_passag;
 	int max_passag;
 	int posPorSegundo;
+
+	int proxDestinoId;
+	int proxDestinoX;
+	int proxDestinoY;
+	int x;
+	int y;
+
+	int statusViagem;//  -1 = nao esta em viagem, != -1 esta em viagem
 };
 
 typedef struct x Aeroporto, * pAeroporto;
@@ -105,3 +113,6 @@ typedef struct {
 }MSGThread;
 
 
+void preparaStringdeCords(TCHAR* send, int x, int y);
+void obterCordsDeString(TCHAR* cords, int* x, int* y);
+void printAviao(Aviao* aviao, TCHAR* out);

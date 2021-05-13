@@ -8,7 +8,7 @@
 
 #define MAX 1000
 
-typedef int(__cdecl* MYPROC)(LPWSTR);
+
 
 #pragma region aviao threads
 // ouvir mensagens do controller
@@ -85,6 +85,21 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 	return 0;
 }
 
+
+DWORD WINAPI gestoraDeViagens(LPVOID param) {
+	ThreadGerirViagens* dados = (ThreadGerirViagens*)param;
+
+	while (!dados->terminar) {
+		WaitForSingleObject(dados->hEventNovaViagem, INFINITE);
+		int x = viajarPara(dados->aviao);
+		/*if (x == 0) {
+			enviarMensagemParaControlador(&escreve, TEXT("CHEGOU AO NOVO DESTINO"));
+		}*/
+	}
+
+	return 0;
+}
+
 #pragma endregion declaracao threads para fluxo de mensagens  aviao -> controlador , controlador -> aviao
 
 int _tmain(int argc, LPTSTR argv[]) {
@@ -118,41 +133,48 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 #pragma region init
 
-	// region prepara threads de leitura e escrita
+	
 	ThreadsControlerAviao controler;
 
 	// thread para enviar mensagens pro controlador -> buffer circular
-	HANDLE hThreadWriter = NULL;
 	HANDLE hFileEscritaMap;
 	MSGThread escreve;
 	BOOL primeiroProcesso = FALSE;
-
 	preparaEnvioDeMensagensParaOControlador(&hFileEscritaMap, &escreve, &primeiroProcesso);
-	hThreadWriter = CreateThread(NULL, 0, ThreadWriter, &escreve, 0, NULL);
+	HANDLE hThreadWriter = CreateThread(NULL, 0, ThreadWriter, &escreve, 0, NULL);
 
 	// thread para receber mensagens do controlador -> memoria partilhada acesso direto
-	HANDLE hThreadReader = NULL;
 	ControllerToPlane ler;
 	HANDLE hFileLeituraMap;
 	controler.escrita = &escreve;
 	controler.leitura = &ler;
 	preparaLeituraMSGdoAviao(&hFileLeituraMap, &ler);
-	hThreadReader = CreateThread(NULL, 0, ThreadReader, &controler, 0, NULL);
+	HANDLE hThreadReader = CreateThread(NULL, 0, ThreadReader, &controler, 0, NULL);
 
-	// end region prepara threads de leitura e escrita
+	
+	
 
+
+	
+	Aviao aviao;
+	aviao.proxDestinoId = -1;
+	aviao.x = -1;
+	aviao.y = -1;
+	aviao.proxDestinoX = -1;
+	aviao.proxDestinoY = -1;
+	aviao.n_passag = -1;
+
+	ThreadGerirViagens ThreadViagens;
+	preparaThreadDeGestaoViagens(&ThreadViagens);
+	ThreadViagens.aviao = &aviao;
+	HANDLE hThreadViagens = CreateThread(NULL, 0, gestoraDeViagens, &ThreadViagens, 0, NULL);
 
 	//obter dados inicias
-	int capacidadePassageiros = 0;
-	int posPorSegundo = 0;
-	setupAviao(&capacidadePassageiros, &posPorSegundo, &controler);
+	setupAviao(&aviao, &controler);
 #pragma endregion inicializar variaveis de controlo de threads e inicio de threads leitura e escrita
 
-
 #pragma region menu aviao
-	int proxDestino = 0;
-	int proxDestinoX = -1;
-	int proxDestinoY = -1;
+
 	while (1) {
 		menuAviao();
 		TCHAR tokenstring[100];
@@ -166,24 +188,17 @@ int _tmain(int argc, LPTSTR argv[]) {
 			//_tprintf(L"%ls\n", token);
 			if (_tcscmp(token, L"prox") == 0) {
 				if (nextToken != NULL) {
-					proxDestino = _tstoi(nextToken);
+					aviao.proxDestinoId = _tstoi(nextToken);
 					TCHAR msg[100] = TEXT("prox ");
 					_tcscat_s(msg, 100, nextToken);
-					//_tprintf(TEXT("token %s\n"), nextToken);
 
 					enviarMensagemParaControlador(&escreve, msg);
 					
 					WaitForSingleObject(ler.hEvent, INFINITE);
-					TCHAR cords[10];
-					_tcscpy_s(cords, _countof(cords), ler.ultimaMsg);
-
-					TCHAR * cordY;
-					TCHAR* cordX = _tcstok_s(cords, delim, &cordY);
-					proxDestinoX = _tstoi(cords);
-					proxDestinoY = _tstoi(cordY);
+					obterCordsDeString(ler.ultimaMsg, &aviao.proxDestinoX, &aviao.proxDestinoY);
 					_tprintf(TEXT("controlador: %s\n"), ler.ultimaMsg);
 
-					_tprintf(TEXT("X:%d  Y:%d\n"), proxDestinoX, proxDestinoY);
+					_tprintf(TEXT("X:%d  Y:%d\n"), aviao.proxDestinoX, aviao.proxDestinoY);
 					if (_tcscmp(ler.ultimaMsg, L"erro") > 0) {
 						_tprintf(TEXT("Próximo destino definido.\n"));
 					}
@@ -197,9 +212,9 @@ int _tmain(int argc, LPTSTR argv[]) {
 				_tprintf(TEXT("A traçar rota.\n"));
 				TCHAR info[100] = TEXT("init ");
 				//_tcscat_s(info, 300, _tstoi(proxDestino));
-
+				disparaEventoDeInicioViagem(&ThreadViagens);
 				
-				_tprintf(TEXT("Iniciou viagem.\n"));
+				//_tprintf(TEXT("Iniciou viagem.\n"));
 			}
 			else if (_tcscmp(token, L"quit") == 0) {
 				// todo
@@ -211,48 +226,6 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 #pragma endregion 
 
-#pragma region prox viagem 
-	// prox posicao
-		 //dll
-	//TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
-	//TCHAR dll[MAX] = TEXT(DLL);
-	//HINSTANCE hinstLib = NULL;
-	//hinstLib = LoadLibrary(dll);
-
-	//MYPROC ProcAdd = NULL;
-	//BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;
-
-	//if (hinstLib != NULL)
-	//{
-
-	//	ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
-
-	//	// If the function address is valid, call the function.
-	//	if (NULL != ProcAdd)
-	//	{
-	//		fRunTimeLinkSuccess = TRUE;
-	//		int nextX = 0;
-	//		int nextY = 0;
-
-	//		int currX = 15;
-	//		int currY = 10;
-
-	//		int status = 1;
-	//		while (status == 1) {
-	//			//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
-	//			status = (ProcAdd)(currX, currY, 100, 30, &nextX, &nextY);
-	//			// status 1 mov correta, 2 erro, 0 chegou 
-	//			_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), currX, currY, nextX, nextY, status);
-	//			currX = nextX;
-	//			currY = nextY;
-	//		}
-	//	}
-
-	//	fFreeResult = FreeLibrary(hinstLib);
-	//	_tprintf(TEXT("Free lib"));
-	//}
-
-#pragma endregion ->> DLL use
 
 
 

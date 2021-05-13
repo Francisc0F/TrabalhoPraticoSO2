@@ -147,6 +147,18 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 
 }
 
+void preparaThreadDeGestaoViagens(ThreadGerirViagens * control) {
+	control->hEventNovaViagem = CreateEvent(
+		NULL,
+		TRUE,
+		FALSE, NULL);
+
+	if (control->hEventNovaViagem == NULL) {
+		_tprintf(TEXT("Erro no CreateEvent hEventEnviarMSG\n"));
+		return 1;
+	}
+	control->terminar = 0;
+}
 
 void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
 	_tcscpy_s(escreve->info, _countof(escreve->info), info);
@@ -156,20 +168,20 @@ void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
 }
 
 
-void setupAviao(int* capacidadePassageiros, int* posPorSegundo, ThreadsControlerAviao*  control) {
+void setupAviao(Aviao* aviao ,ThreadsControlerAviao*  control) {
 	_tprintf(TEXT("Indique cap maxima, numero posicoes por segundo -> <NcapMaxima> <NposicoesSegundo>\n"));
 	TCHAR info[100];
 	_fgetts(info, 100, stdin);
 	info[_tcslen(info) - 1] = '\0';
 
-	TCHAR* ptr;
+	TCHAR* nextToken;
 	TCHAR delim[] = L" ";
-	TCHAR* token = wcstok_s(info, delim, &ptr);
+	
+	TCHAR* token = _tcstok_s(info, delim, &nextToken);
 	if (token != NULL) {
-		*capacidadePassageiros = _tstoi(token);
-		token = wcstok_s(info, delim, &ptr);
-		if (token != NULL) {
-			*posPorSegundo = _tstoi(token);
+		aviao->max_passag = _tstoi(token);
+		if (nextToken != NULL) {
+			aviao->posPorSegundo = _tstoi(nextToken);
 		}
 	}
 	// envio de info do aeroporto do aviao
@@ -182,11 +194,17 @@ void setupAviao(int* capacidadePassageiros, int* posPorSegundo, ThreadsControler
 	_fgetts(idAero, 100, stdin);
 	idAero[_tcslen(idAero) - 1] = '\0';
 
+	aviao->idAeroporto = _tstoi(idAero);
 	// envio de info do aviao  -> adiciona aviao no controlador
-	control->escrita->idAeroporto = _tstoi(idAero);
-	control->escrita->capacidadePassageiros = *capacidadePassageiros;
-	control->escrita->posPorSegundo = *posPorSegundo;
+	control->escrita->idAeroporto = aviao->idAeroporto;
+	control->escrita->capacidadePassageiros = aviao->max_passag;
+	control->escrita->posPorSegundo = aviao->posPorSegundo;
 	enviarMensagemParaControlador(control->escrita, TEXT("info"));
+	
+	WaitForSingleObject(control->leitura->hEvent, INFINITE);
+	obterCordsDeString(control->leitura->ultimaMsg, &aviao->x, &aviao->y);
+
+	printAviao(aviao, NULL);
 }
 
 int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada) {
@@ -196,4 +214,60 @@ int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada) {
 			return 1;
 	}
 	return 0;
+}
+
+
+int viajarPara(Aviao * aviao) {
+	// prox posicao 	 dll
+	//TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
+	TCHAR dll[100] = TEXT(DLL);
+	HINSTANCE hinstLib = NULL;
+	hinstLib = LoadLibrary(dll);
+
+	
+
+	MYPROC ProcAdd = NULL;
+	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;
+
+	if (hinstLib != NULL)
+	{
+		ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
+		
+		if (NULL != ProcAdd)
+		{
+			fRunTimeLinkSuccess = TRUE;
+			int nextX = aviao->proxDestinoX;
+			int nextY = aviao->proxDestinoY;
+
+			int currX = aviao->x;
+			int currY = aviao->x;
+
+			aviao->statusViagem = 1;
+			while (aviao->statusViagem == 1) {
+				//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
+				aviao->statusViagem = (ProcAdd)(currX, currY, aviao->proxDestinoX, aviao->proxDestinoY, &nextX, &nextY);
+				// status 1 mov correta, 2 erro, 0 chegou 
+				_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), currX, currY, nextX, nextY, aviao->statusViagem);
+				currX = nextX;
+				currY = nextY;
+				Sleep(aviao->posPorSegundo * 1000);
+			}
+			if (aviao->statusViagem == 0) {
+				fFreeResult = FreeLibrary(hinstLib);
+				_tprintf(TEXT("Free lib"));
+				return aviao->statusViagem;
+			}
+		
+		}
+
+	
+	}
+	fFreeResult = FreeLibrary(hinstLib);
+	_tprintf(TEXT("Free lib"));
+}
+
+void disparaEventoDeInicioViagem(ThreadGerirViagens * control) {
+	SetEvent(control->hEventNovaViagem);
+	Sleep(20);
+	ResetEvent(control->hEventNovaViagem);
 }

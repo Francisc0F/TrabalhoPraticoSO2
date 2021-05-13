@@ -63,18 +63,7 @@ int getAeroporto(int id, Aeroporto lista[]) {
 	return -1;
 }
 
-void printAviao(Aviao* aviao, TCHAR* out) {
-	TCHAR aux[100];
-	if (out != NULL) {
-		_stprintf_s(aux, 100, L"\n id: [%d]\n IdAeroPorto atual: %d\n n_passag: %d\n max_passag: %d\n posPorSegundo: %d\n",
-			aviao->id, aviao->idAeroporto, aviao->n_passag, aviao->max_passag, aviao->posPorSegundo);
-		_tcscat_s(out, 300, aux);
-	}
-	else {
-		_tprintf(TEXT("\n id: [%d]\n IdAeroPorto atual: %d\n n_passag: %d\n max_passag: %d\n posPorSegundo: %d\n"),
-			aviao->id, aviao->idAeroporto, aviao->n_passag, aviao->max_passag, aviao->posPorSegundo);
-	}
-}
+
 
 void listaAvioes(Aviao lista[], TCHAR* out) {
 	for (int i = 0; i < MAXAVIOES; i++) {

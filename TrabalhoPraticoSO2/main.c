@@ -9,7 +9,6 @@
 #define MAP 1000
 #define MAXAVIOES 100
 
-typedef int(__cdecl* MYPROC)(LPWSTR);
 
 #pragma region threads declaration
 
@@ -82,7 +81,11 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 
 		if (_tcscmp(cel.info, TEXT("info") ) == 0) {
 			adicionarAviao(cel.id, 0, cel.aviao.max_passag, cel.aviao.posPorSegundo, cel.aviao.idAeroporto, threadControl->avioes);
-			enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("sucesso"));
+			Aeroporto* aux = &threadControl->listaAeroportos[cel.aviao.idAeroporto - 1];
+			TCHAR send[100] = { 0 };
+			preparaStringdeCords(send, aux->x, aux->y);
+			enviarMensagemParaAviao(cel.id, threadControl->escrita, send);
+
 		}if (_tcscmp(cel.info, TEXT("aero")) == 0) {
 			_tprintf(TEXT("Enviou %s.\n"), cel.info);
 			TCHAR info[400]= TEXT("");
@@ -101,20 +104,9 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 					int index = getAeroporto(proxDestino, threadControl->listaAeroportos);
 					if (index >= 0) {
 						_tprintf(TEXT("Aviao %d vai partir para %s.\n"), cel.id, threadControl->listaAeroportos[index].nome);
+						
 						TCHAR send[100] = { 0 };
-
-						TCHAR cordX[100];
-						TCHAR cordY[100];
-
-						_itot_s(threadControl->listaAeroportos[index].x, cordX, _countof(send), 10);
-				
-						_itot_s(threadControl->listaAeroportos[index].y, cordY, _countof(send),  10);
-
-						_tcscat_s(send, 100, cordX);
-						_tcscat_s(send, 100, TEXT(" "));
-						_tcscat_s(send, 100, cordY);
-						send[_tcslen(send)] = '\0';
-
+						preparaStringdeCords(send, threadControl->listaAeroportos[index].x, threadControl->listaAeroportos[index].y);
 						enviarMensagemParaAviao(cel.id, threadControl->escrita, send);
 					}
 					else {
