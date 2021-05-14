@@ -10,17 +10,12 @@ void menuAviao() {
 	_putws(TEXT("quit - terminar instancia de aviao"));
 }
 
-
 void printMSG(MSGcel cel) {
 	_tprintf(TEXT("info %s, x %d, y %d, \n"), cel.info, cel.x, cel.y);
 }
 
-void proxDestino(int idAeroportoDestino) {
-	// todo 
-}
-
 void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane* ler) {
-	hFileMap = CreateFileMapping(
+	*hFileMap = CreateFileMapping(
 		INVALID_HANDLE_VALUE,
 		NULL,
 		PAGE_READWRITE,
@@ -28,7 +23,7 @@ void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane* ler) {
 		sizeof(MSGCtrlToPlane), // alterar o tamanho do filemapping
 		TEXT(FILE_MAP_MSG_TO_PLANES)); //nome do file mapping, tem de ser único
 
-	if (hFileMap == NULL) {
+	if (*hFileMap == NULL) {
 		_tprintf(TEXT("Erro no CreateFileMapping\n"));
 		//CloseHandle(hFile);
 		return 1;
@@ -36,7 +31,7 @@ void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane* ler) {
 
 	//mapeia bloco de memoria para espaço de endereçamento
 	ler->fileViewMap = (MSGCtrlToPlane*)MapViewOfFile(
-		hFileMap,
+		*hFileMap,
 		FILE_MAP_ALL_ACCESS,
 		0,
 		0,
@@ -104,11 +99,11 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 	//se devolver um HANDLE ja existe e nao fazemos a inicializacao
 	//se devolver NULL nao existe e vamos fazer a inicializacao
 
-	hFileEscritaMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, FILE_MAP_MSG_TO_CONTROLER);
-	if (hFileEscritaMap == NULL) {
+	*hFileEscritaMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, FILE_MAP_MSG_TO_CONTROLER);
+	if (*hFileEscritaMap == NULL) {
 		primeiroProcesso = TRUE;
 		//criamos o bloco de memoria partilhada
-		hFileEscritaMap = CreateFileMapping(
+		*hFileEscritaMap = CreateFileMapping(
 			INVALID_HANDLE_VALUE,
 			NULL,
 			PAGE_READWRITE,
@@ -116,14 +111,14 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 			sizeof(BufferCircular), //tamanho da memoria partilhada
 			FILE_MAP_MSG_TO_CONTROLER);//nome do filemapping. nome que vai ser usado para partilha entre processos
 
-		if (hFileEscritaMap == NULL) {
+		if (*hFileEscritaMap == NULL) {
 			_tprintf(TEXT("Erro no CreateFileMapping\n"));
 			return -1;
 		}
 	}
 
 	//mapeamos o bloco de memoria para o espaco de enderaçamento do nosso processo
-	escreve->memPar = (BufferCircular*)MapViewOfFile(hFileEscritaMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	escreve->memPar = (BufferCircular*)MapViewOfFile(*hFileEscritaMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
 
 
 	if (escreve->memPar == NULL) {
@@ -147,7 +142,7 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 
 }
 
-void preparaThreadDeGestaoViagens(ThreadGerirViagens * control) {
+void preparaThreadDeGestaoViagens(ThreadGerirViagens* control) {
 	control->hEventNovaViagem = CreateEvent(
 		NULL,
 		TRUE,
@@ -168,7 +163,7 @@ void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
 }
 
 
-void setupAviao(Aviao* aviao ,ThreadsControlerAviao*  control) {
+void setupAviao(Aviao* aviao, ThreadsControlerAviao* control) {
 	_tprintf(TEXT("Indique cap maxima, numero posicoes por segundo -> <NcapMaxima> <NposicoesSegundo>\n"));
 	TCHAR info[100];
 	_fgetts(info, 100, stdin);
@@ -176,7 +171,7 @@ void setupAviao(Aviao* aviao ,ThreadsControlerAviao*  control) {
 
 	TCHAR* nextToken;
 	TCHAR delim[] = L" ";
-	
+
 	TCHAR* token = _tcstok_s(info, delim, &nextToken);
 	if (token != NULL) {
 		aviao->max_passag = _tstoi(token);
@@ -190,7 +185,7 @@ void setupAviao(Aviao* aviao ,ThreadsControlerAviao*  control) {
 	WaitForSingleObject(control->leitura->hEvent, INFINITE);
 	_tprintf(TEXT("controlador: %s\n"), control->leitura->ultimaMsg);
 
-	TCHAR idAero[100]; 
+	TCHAR idAero[100];
 	_fgetts(idAero, 100, stdin);
 	idAero[_tcslen(idAero) - 1] = '\0';
 
@@ -200,31 +195,47 @@ void setupAviao(Aviao* aviao ,ThreadsControlerAviao*  control) {
 	control->escrita->capacidadePassageiros = aviao->max_passag;
 	control->escrita->posPorSegundo = aviao->posPorSegundo;
 	enviarMensagemParaControlador(control->escrita, TEXT("info"));
-	
+
 	WaitForSingleObject(control->leitura->hEvent, INFINITE);
 	obterCordsDeString(control->leitura->ultimaMsg, &aviao->x, &aviao->y);
 
 	printAviao(aviao, NULL);
 }
 
-int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada) {
-	hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
-	if (hMapaDePosicoesPartilhada == NULL) {
-			_tprintf(TEXT("Controlador nao esta disponivel.\n"));
-			return 1;
+int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso) {
+	*hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
+	if (*hMapaDePosicoesPartilhada == NULL) {
+		_tprintf(TEXT("Controlador nao esta disponivel.\n"));
+		return 1;
 	}
 	return 0;
+
+	*mutexAcesso = CreateMutex(NULL, FALSE, MUTEX_MAPA_PARTILHADO);
+
+	if (*mutexAcesso == NULL) {
+		_tprintf(TEXT("Erro no mutexAcesso hMapaDePosicoesPartilhada\n"));
+		return -1;
+	}
 }
 
+void atualizaPosicaoAviao(Aviao* a, int x, int y) {
+	a->x = x;
+	a->y = y;
+}
 
-int viajarPara(Aviao * aviao) {
+int viajar(ThreadGerirViagens* dados) {
+
+	Aviao* aviaoLocal = dados->aviaoMemLocal;
+	MapaPartilhado * partilhado = dados->MapaPartilhado;
+	MapaPartilhado local;
+
+	//Aviao* mapaPartilhado = dados->MapaPartilhado->avioesMapa;
+	//Aviao mapaPartilhadoLocal[MAXAVIOES];
 	// prox posicao 	 dll
 	//TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
 	TCHAR dll[100] = TEXT(DLL);
 	HINSTANCE hinstLib = NULL;
 	hinstLib = LoadLibrary(dll);
-
-	
 
 	MYPROC ProcAdd = NULL;
 	BOOL fFreeResult, fRunTimeLinkSuccess = FALSE;
@@ -232,42 +243,79 @@ int viajarPara(Aviao * aviao) {
 	if (hinstLib != NULL)
 	{
 		ProcAdd = (MYPROC)GetProcAddress(hinstLib, "move");
-		
+
 		if (NULL != ProcAdd)
 		{
 			fRunTimeLinkSuccess = TRUE;
-			int nextX = aviao->proxDestinoX;
-			int nextY = aviao->proxDestinoY;
+			int nextX = aviaoLocal->proxDestinoX;
+			int nextY = aviaoLocal->proxDestinoY;
 
-			int currX = aviao->x;
-			int currY = aviao->x;
+			int currX = aviaoLocal->x;
+			int currY = aviaoLocal->x;
 
-			aviao->statusViagem = 1;
-			while (aviao->statusViagem == 1) {
+			aviaoLocal->statusViagem = 1;
+			while (aviaoLocal->statusViagem == 1) {
 				//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
-				aviao->statusViagem = (ProcAdd)(currX, currY, aviao->proxDestinoX, aviao->proxDestinoY, &nextX, &nextY);
+
+				aviaoLocal->statusViagem = (ProcAdd)(currX, currY, aviaoLocal->proxDestinoX, aviaoLocal->proxDestinoY, &nextX, &nextY);
 				// status 1 mov correta, 2 erro, 0 chegou 
-				_tprintf(TEXT("\nprev pos (%d,%d)  -> (%d,%d) status %d"), currX, currY, nextX, nextY, aviao->statusViagem);
+
+				_tprintf(TEXT("\n (x: %d, y: %d) status %d"), nextX, nextY, aviaoLocal->statusViagem);
+
+				WaitForSingleObject(dados->hMutexAcessoAMapaPartilhado, INFINITE);
+				//CopyMemory(&local, partilhado, sizeof(MapaPartilhado));
+				
+				int livre = verificaPosLivre(partilhado->avioesMapa, nextX, nextY);
+				if (livre == 1) {
+					int index = getAviao(aviaoLocal->id, partilhado->avioesMapa);
+					if (index > -1) {
+						Aviao* aux = &partilhado->avioesMapa[index];
+						aux->idAeroporto = -1;
+						aux->x = nextX;
+						aux->y = nextY;
+					}
+				}
+
+				ReleaseMutex(dados->hMutexAcessoAMapaPartilhado);
+
+				if (livre == 1) {
+					atualizaPosicaoAviao(aviaoLocal, nextX, nextY);
+				}
+
 				currX = nextX;
 				currY = nextY;
-				Sleep(aviao->posPorSegundo * 1000);
+				if (aviaoLocal->statusViagem != 0) {
+					Sleep(aviaoLocal->posPorSegundo * 1000);
+				}
+				else {
+					break;
+				}
 			}
-			if (aviao->statusViagem == 0) {
+			if (aviaoLocal->statusViagem == 0) {
 				fFreeResult = FreeLibrary(hinstLib);
-				_tprintf(TEXT("Free lib"));
-				return aviao->statusViagem;
+				return aviaoLocal->statusViagem;
 			}
-		
+
 		}
 
-	
+
 	}
-	fFreeResult = FreeLibrary(hinstLib);
-	_tprintf(TEXT("Free lib"));
+
 }
 
-void disparaEventoDeInicioViagem(ThreadGerirViagens * control) {
+void disparaEventoDeInicioViagem(ThreadGerirViagens* control) {
 	SetEvent(control->hEventNovaViagem);
 	Sleep(20);
 	ResetEvent(control->hEventNovaViagem);
+}
+
+int verificaPosLivre(Aviao* lista, int x, int y) {
+	for (int i = 0; i < MAXAVIOES; i++) {
+		if (lista[i].id != 0) {
+			if (lista[i].x == x && lista[i].y == y) {
+				return 0;
+			}
+		}
+	}
+	return 1;
 }

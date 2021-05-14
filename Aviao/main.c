@@ -64,6 +64,7 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 		WaitForSingleObject(dados->hMutex, INFINITE);
 
 		//vamos copiar a variavel cel para a memoria partilhada (para a posição de escrita)
+		
 		CopyMemory(&dados->memPar->buffer[dados->memPar->posE], &cel, sizeof(MSGcel));
 		dados->memPar->posE++; //incrementamos a posicao de escrita para o proximo produtor escrever na posicao seguinte
 
@@ -88,15 +89,14 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 
 DWORD WINAPI gestoraDeViagens(LPVOID param) {
 	ThreadGerirViagens* dados = (ThreadGerirViagens*)param;
-
+	
 	while (!dados->terminar) {
 		WaitForSingleObject(dados->hEventNovaViagem, INFINITE);
-		int x = viajarPara(dados->aviao);
-		/*if (x == 0) {
-			enviarMensagemParaControlador(&escreve, TEXT("CHEGOU AO NOVO DESTINO"));
-		}*/
+		int x = viajar(dados);
+		if (x == 0) {
+			enviarMensagemParaControlador(dados->escrita, TEXT("CHEGOU AO NOVO DESTINO"));
+		}
 	}
-
 	return 0;
 }
 
@@ -105,14 +105,16 @@ DWORD WINAPI gestoraDeViagens(LPVOID param) {
 int _tmain(int argc, LPTSTR argv[]) {
 
 	HANDLE hMapaDePosicoesPartilhada;
-	int controladorDisponivel = abrirMapaPartilhado(&hMapaDePosicoesPartilhada);
+	HANDLE hMutexMapaDePosicoesPartilhada;
+	int controladorDisponivel = abrirMapaPartilhado(&hMapaDePosicoesPartilhada, &hMutexMapaDePosicoesPartilhada);
 	if (controladorDisponivel == 1) {
 		_tprintf(TEXT("Aviao terminou.\n"));
 		TCHAR cmd[23];
 		_fgetts(cmd, 23, stdin);
 		return -1;
 	}
-	Aviao* mapaAvioesPartilhado = (Aviao*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	MapaPartilhado* mapaAvioesPartilhado = (MapaPartilhado*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	
 
 	HANDLE hSem = CreateSemaphore(NULL, 1, 1, SEMAPHORE_NUM_AVIOES);
 	if (hSem == NULL) {
@@ -152,11 +154,8 @@ int _tmain(int argc, LPTSTR argv[]) {
 	HANDLE hThreadReader = CreateThread(NULL, 0, ThreadReader, &controler, 0, NULL);
 
 	
-	
-
-
-	
 	Aviao aviao;
+	aviao.id = escreve.id;
 	aviao.proxDestinoId = -1;
 	aviao.x = -1;
 	aviao.y = -1;
@@ -166,7 +165,11 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 	ThreadGerirViagens ThreadViagens;
 	preparaThreadDeGestaoViagens(&ThreadViagens);
-	ThreadViagens.aviao = &aviao;
+
+	ThreadViagens.escrita = &escreve;
+	ThreadViagens.hMutexAcessoAMapaPartilhado = hMutexMapaDePosicoesPartilhada;
+	ThreadViagens.aviaoMemLocal = &aviao;
+	ThreadViagens.MapaPartilhado = mapaAvioesPartilhado;
 	HANDLE hThreadViagens = CreateThread(NULL, 0, gestoraDeViagens, &ThreadViagens, 0, NULL);
 
 	//obter dados inicias
@@ -227,14 +230,11 @@ int _tmain(int argc, LPTSTR argv[]) {
 #pragma endregion 
 
 
-
-
 	if (hThreadReader != NULL)
 		WaitForSingleObject(hThreadReader, INFINITE);
 
 	if (hThreadWriter != NULL) {
 		WaitForSingleObject(hThreadWriter, INFINITE);
 	}
-
 
 }

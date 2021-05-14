@@ -26,8 +26,7 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 
 		//limpa memoria antes de fazer a copia
 		ZeroMemory(dados->fileViewMap, sizeof(MSGCtrlToPlane));
-
-		//copia memoria de um sitio para outro 
+				
 		CopyMemory(dados->fileViewMap, &dados->msgToSend, sizeof(MSGCtrlToPlane));
 
 		//liberto mutex
@@ -44,7 +43,7 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 }
 
 #pragma endregion 
-
+	
 #pragma region buffer circular leitura 
 DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 	ThreadsControlerControlador* threadControl = (ThreadsControlerControlador*)param;
@@ -53,35 +52,30 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 	int soma = 0;
 	TCHAR* garbage = NULL;
 	while (!dados->terminar) {
-		//aqui entramos na logica da aula teorica
 
-		//esperamos por uma posicao para lermos
 		WaitForSingleObject(dados->hSemLeitura, INFINITE);
 
-		//esperamos que o mutex esteja livre
 		WaitForSingleObject(dados->hMutex, INFINITE);
 
-
-		//vamos copiar da proxima posicao de leitura do buffer circular para a nossa variavel cel
 		CopyMemory(&cel, &dados->memPar->buffer[dados->memPar->posL], sizeof(MSGcel));
-		dados->memPar->posL++; //incrementamos a posicao de leitura para o proximo consumidor ler na posicao seguinte
+		dados->memPar->posL++; 
 
-		//se apos o incremento a posicao de leitura chegar ao fim, tenho de voltar ao inicio
 		if (dados->memPar->posL == TAM_BUFFER)
 			dados->memPar->posL = 0;
 
-		//libertamos o mutex
 		ReleaseMutex(dados->hMutex);
 
-		//libertamos o semaforo. temos de libertar uma posicao de escrita
 		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
 
-		_tprintf(TEXT("Aviao: %d msg: %s\n"), cel.aviao.id, cel.info);
-		// trata mensagem
+		_tprintf(TEXT("Aviao: %d msg: %s\n"), cel.id, cel.info);
 
 		if (_tcscmp(cel.info, TEXT("info") ) == 0) {
-			adicionarAviao(cel.id, 0, cel.aviao.max_passag, cel.aviao.posPorSegundo, cel.aviao.idAeroporto, threadControl->avioes);
 			Aeroporto* aux = &threadControl->listaAeroportos[cel.aviao.idAeroporto - 1];
+			cel.aviao.id = cel.id;
+			cel.aviao.x = aux->x;
+			cel.aviao.y = aux->y;
+			adicionarAviao(&cel.aviao,threadControl->avioes);
+			
 			TCHAR send[100] = { 0 };
 			preparaStringdeCords(send, aux->x, aux->y);
 			enviarMensagemParaAviao(cel.id, threadControl->escrita, send);
@@ -99,8 +93,6 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 			if (_tcscmp(token, TEXT("prox")) == 0) {
 				if (nextToken != NULL) {
 					int proxDestino = _tcstol(nextToken, &garbage, 0);
-				
-
 					int index = getAeroporto(proxDestino, threadControl->listaAeroportos);
 					if (index >= 0) {
 						_tprintf(TEXT("Aviao %d vai partir para %s.\n"), cel.id, threadControl->listaAeroportos[index].nome);
@@ -120,7 +112,7 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 		}
 		
 	}
-	_tprintf(TEXT("fim thread leitura \n"));
+	
 	return 0;
 }
 #pragma endregion 
@@ -154,11 +146,20 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 #pragma region threads setup
 	Aeroporto aeroportos[MAXAEROPORTOS] = { 0 };
-	Aviao avioes[MAXAVIOES] = { 0 };
+	//Aviao avioes[MAXAVIOES] = { 0 };
+
+#pragma region setup lista de posicoes em mapa partilhado
+	HANDLE hMapaDePosicoesPartilhada = NULL;
+	HANDLE hMutexAcessoMapa = NULL;
+	setupMapaPartilhado(&hMapaDePosicoesPartilhada, &hMutexAcessoMapa);
+
+	//mapa de avioes
+	MapaPartilhado* mapaPartilhadoAvioes = (MapaPartilhado*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+#pragma endregion
 
 	ThreadsControlerControlador controler;
 	controler.listaAeroportos = aeroportos;
-	controler.avioes = avioes;
+	controler.avioes = mapaPartilhadoAvioes->avioesMapa;
 
 #pragma region semaphore de controlo do numero de avioes
 	HANDLE controloDeNumeroDeAvioes = CreateSemaphore(NULL, maxAvioes, maxAvioes, SEMAPHORE_NUM_AVIOES);
@@ -173,7 +174,6 @@ int _tmain(int argc, TCHAR* argv[]) {
 	MSGThread ler;
 	HANDLE hLerFileMap;
 	HANDLE hThreadLeitura;
-
 	controler.leitura = &ler;
 	preparaParaLerInfoDeAvioes(controler.leitura, &hLerFileMap);
 	hThreadLeitura = CreateThread(NULL, 0, ThreadLerBufferCircular, &controler, 0, NULL);
@@ -192,14 +192,6 @@ int _tmain(int argc, TCHAR* argv[]) {
 	adicionarAeroporto(TEXT("Madrid"), 10, 10, aeroportos);
 	adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
 	adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
-
-#pragma region setup lista de posicoes em mapa partilhado
-	HANDLE hMapaDePosicoesPartilhada = NULL;
-	setupMapaPartilhado(&hMapaDePosicoesPartilhada, maxAvioes);
-	
-	//mapa de avioes
-	Aviao * mapaAvioesPartilhado = (Aviao*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-#pragma endregion
 
 #pragma region menu interface
 	// menu  
@@ -235,7 +227,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 			}
 			else if (_tcscmp(token, L"lista") == 0) {
 				//listaTudo(aeroportos, NULL);
-				listaAvioes(avioes, NULL);
+				listaAvioes(mapaPartilhadoAvioes->avioesMapa, NULL);
 				break;
 			}
 			else if (_tcscmp(token, L"suspender") == 0) {

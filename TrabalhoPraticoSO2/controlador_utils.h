@@ -15,7 +15,8 @@ typedef struct {
 
 void menuControlador();
 
-void adicionarAviao(int id, int n_passag, int max_passag, int posPorSegundo, int idAero, Aviao lista[]);
+
+void adicionarAviao(Aviao* a, Aviao lista[]);
 void listaAvioes(Aviao lista[], TCHAR* out);
 
 int getAeroporto(int id, Aeroporto lista[]);
@@ -32,4 +33,4 @@ void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap);
 void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info);
 void printAeroporto(pAeroporto aero, TCHAR* out);
 
-void setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, int maxAvioes);
+void setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso);

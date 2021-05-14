@@ -5,6 +5,7 @@
 #define SEMAPHORE_NUM_AVIOES "SEMAPHORE_NUM_AVIOES"
 #define	READMAP "READMAP"
 #define MAPA_PARTILHADO "MAPA_PARTILHADO"
+#define MUTEX_MAPA_PARTILHADO "MUTEX_MAPA_PARTILHADO"
 
 #define FILE_MAP_MSG_TO_PLANES "FILE_MAP_MSG_TO_PLANES"
 #define EVENT_MSG_TO_PLANES "EVENT_MSG_TO_PLANES"
@@ -92,8 +93,6 @@ typedef struct {
 }BufferCircular;
 
 
-
-
 typedef struct {
 	TCHAR* fileViewMap;
 	HANDLE hSemEscrita;
@@ -113,6 +112,22 @@ typedef struct {
 }MSGThread;
 
 
+typedef struct {
+	Aviao avioesMapa[MAXAVIOES];
+}MapaPartilhado;
+
+typedef struct {
+	HANDLE hEventNovaViagem;
+	MSGThread* escrita;
+	int terminar;
+	MapaPartilhado* MapaPartilhado;
+	HANDLE hMutexAcessoAMapaPartilhado;
+	Aviao* aviaoMemLocal;
+}ThreadGerirViagens;
+
+
+
 void preparaStringdeCords(TCHAR* send, int x, int y);
 void obterCordsDeString(TCHAR* cords, int* x, int* y);
 void printAviao(Aviao* aviao, TCHAR* out);
+int getAviao(int id, Aviao lista[]);

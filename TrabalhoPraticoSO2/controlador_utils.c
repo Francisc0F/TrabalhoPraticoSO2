@@ -41,14 +41,24 @@ void printAeroporto(pAeroporto aero, TCHAR* out) {
 	}
 }
 
-void adicionarAviao(int id,int n_passag, int max_passag, int posPorSegundo, int idAero,  Aviao lista[]) {
+void adicionarAviao(Aviao *a, Aviao lista[]) {
+	// int id, int n_passag, int max_passag, int posPorSegundo, int idAero,
 	for (int i = 0; i < MAXAVIOES; i++) {
 		if(lista[i].id == 0){
-			lista[i].id = id;
-			lista[i].idAeroporto = idAero;
-			lista[i].n_passag = n_passag;
-			lista[i].max_passag = max_passag;
-			lista[i].posPorSegundo = posPorSegundo;
+			lista[i].id = a->id;
+			lista[i].idAeroporto = a->idAeroporto;
+			lista[i].n_passag = a->n_passag;
+			lista[i].max_passag = a->max_passag;
+			lista[i].posPorSegundo = a->posPorSegundo;
+			lista[i].x = a->x;
+			lista[i].y = a->x;
+
+
+			lista[i].proxDestinoId = -1;
+			lista[i].proxDestinoX = -1;
+			lista[i].proxDestinoY = -1;
+			lista[i].statusViagem = -1;
+	
 			break;
 		}
 	}
@@ -62,6 +72,8 @@ int getAeroporto(int id, Aeroporto lista[]) {
 	}
 	return -1;
 }
+
+
 
 
 
@@ -241,23 +253,30 @@ void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_n
 	RegCloseKey(handle);
 }
 
-void setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, int maxAvioes) {
-	 hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
-	if (hMapaDePosicoesPartilhada == NULL) {
+void setupMapaPartilhado(HANDLE * hMapaDePosicoesPartilhada, HANDLE * mutexAcesso) {
+	 *hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
+	if (*hMapaDePosicoesPartilhada == NULL) {
 
-		hMapaDePosicoesPartilhada = CreateFileMapping(
+		*hMapaDePosicoesPartilhada = CreateFileMapping(
 			INVALID_HANDLE_VALUE,
 			NULL,
 			PAGE_READWRITE,
 			0,
-			sizeof(Aviao) * maxAvioes,
+			sizeof(MapaPartilhado),
 			MAPA_PARTILHADO);
 
-		if (hMapaDePosicoesPartilhada == NULL) {
+		if (*hMapaDePosicoesPartilhada == NULL) {
 			_tprintf(TEXT("Erro no hMapaDePosicoesPartilhada\n"));
 			return -1;
 		}
 	}
+	*mutexAcesso = CreateMutex(NULL, FALSE, MUTEX_MAPA_PARTILHADO);
+
+	if (*mutexAcesso == NULL) {
+		_tprintf(TEXT("Erro no mutexAcesso hMapaDePosicoesPartilhada\n"));
+		return -1;
+	}
+
 }
 
 void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
@@ -274,7 +293,7 @@ void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 	ler->hMutex = CreateMutex(NULL, FALSE, MUTEX_CONSUMIDOR_MSG_TO_CONTROLER);
 
 	if (ler->hSemEscrita == NULL || ler->hSemLeitura == NULL || ler->hMutex == NULL) {
-		_tprintf(TEXT("Erro no CreateSemaphore ou no CreateMutex\n"));
+		_tprintf(TEXT("Erro no CreateSemaphore hSemLeitura hSemEscrita ou no CreateMutex\n"));
 		return -1;
 	}
 
