@@ -26,13 +26,14 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 			// guarda mensagem em variavel local
 			_tcscpy_s(dados->ultimaMsg, _countof(dados->ultimaMsg), dados->fileViewMap->info);
 			//_tprintf(TEXT("MSG: id: %d \nmsg: %s\n"), dados->fileViewMap->idAviao, dados->fileViewMap->info);
+			//_tprintf(TEXT("MSG\n"));
 		}
 		else if (dados->fileViewMap->idAviao == -1) {
 			_tprintf(TEXT("Notificação Geral: %s\n"), dados->fileViewMap->info);
 		}
 		ReleaseMutex(dados->hMutex);
 
-		Sleep(1000);
+		Sleep(100);
 	}
 
 	return 0;
@@ -67,7 +68,7 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 
 		//libertar posicao de leitura
 		ReleaseSemaphore(dados->hSemLeitura, 1, NULL);
-		Sleep(1000);
+		Sleep(100);
 	}
 
 	return 0;
@@ -88,7 +89,10 @@ DWORD WINAPI GestoraDeViagens(LPVOID param) {
 
 DWORD WINAPI EstouAquiPing(LPVOID param) {
 	ThreadPingControler* threadControl = (ThreadPingControler*)param;
+	MapaPartilhado* partilhado = threadControl->MapaPartilhado;
+	Aviao* aviaoLocal = threadControl->AviaoLocal;
 
+	int contador = 0;
 	while (!threadControl->terminar) {
 
 		if (WaitForSingleObject(threadControl->hTimer, INFINITE) != WAIT_OBJECT_0) {
@@ -96,7 +100,11 @@ DWORD WINAPI EstouAquiPing(LPVOID param) {
 			break;
 		}
 		else {
-			enviarMensagemParaControlador(threadControl->escrita, TEXT("aqui"));
+			WaitForSingleObject(threadControl->hMutexAcessoAMapaPartilhado, INFINITE);
+			int index = getAviao(aviaoLocal->id, partilhado->avioesMapa);
+			Aviao* aux = &partilhado->avioesMapa[index];
+			aux->segundosVivo += 3;
+			ReleaseMutex(threadControl->hMutexAcessoAMapaPartilhado);
 		}
 		
 	}
@@ -179,15 +187,15 @@ int _tmain(int argc, LPTSTR argv[]) {
 	setupAviao(&aviao, &controler);
 
 	ThreadPingControler ThreadPing;
-	ThreadPing.escrita = &escreve;
 	ThreadPing.hTimer = OpenWaitableTimer(TIMER_ALL_ACCESS , NULL, PINGTIMER);
-	
 	if (ThreadPing.hTimer == NULL) {
 		_tprintf(L"OpenWaitableTimer failed (%d)\n", GetLastError());
 		TCHAR cmd[23];
 		_fgetts(cmd, 23, stdin);
 		return -2;
 	}
+	ThreadPing.AviaoLocal = &aviao;
+	ThreadPing.MapaPartilhado = mapaAvioesPartilhado;
 	ThreadPing.terminar = 0;
 	hThreads[3] = CreateThread(NULL, 0, EstouAquiPing, &ThreadPing, 0,NULL);
 #pragma endregion inicializar variaveis de controlo de threads e inicio de threads leitura e escrita

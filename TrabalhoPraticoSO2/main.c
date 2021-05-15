@@ -29,7 +29,7 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 		
 		//evento ordem para "ir ler" mensagem, para todos os avioes
 		SetEvent(dados->hEvent);// desbloqueia evento   
-		Sleep(300);
+		Sleep(100);
 		ResetEvent(dados->hEvent); //bloqueia evento
 	}
 	return 0;
@@ -68,7 +68,8 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 			celLocal.aviao.y = aux->y;
 
 			WaitForSingleObject(*threadControl->hMutexAcessoMapa, INFINITE);
-			adicionarAviao(&celLocal.aviao,threadControl->avioes);
+			adicionarAviao(&celLocal.aviao, threadControl->avioes);
+			_tprintf(TEXT("adicionou aviao\n"));
 			(*threadControl->numAtualAvioes)++;
 			ReleaseMutex(*threadControl->hMutexAcessoMapa);
 			
@@ -76,7 +77,7 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 				//iniciar timer de aviso periodico de avioes
 				LARGE_INTEGER liDueTime;
 				liDueTime.QuadPart = -30000000LL; // comeca daqui a 3 
-				if (!SetWaitableTimer(*threadControl->hTimerPing, 
+				if (!SetWaitableTimer(threadControl->hTimerPing, 
 					&liDueTime, 
 					3000,  // fica periodic a cada 3 secs 
 					NULL, 
@@ -125,19 +126,77 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 					enviarMensagemParaAviao(celLocal.id, threadControl->escrita, TEXT("erro"));
 				}
 			}
+			else if (_tcscmp(token, TEXT("idAero")) == 0) {
+				int index = getAeroporto(_tstoi(nextToken), threadControl->listaAeroportos);
+				TCHAR send[100] = { 0 };
+				if (index >= 0) {
+					 _tcscpy_s(send, _countof(send), L"sucesso");
+					enviarMensagemParaAviao(celLocal.id, threadControl->escrita, send);
+				}
+				else {
+					_tcscpy_s(send, _countof(send), L"erro");
+					enviarMensagemParaAviao(celLocal.id, threadControl->escrita, send);
+				}
+			}
 		}
 		
 	}
 	
 	return 0;
 }
-#pragma endregion 
+#pragma endregion
+
+
+DWORD WINAPI ThreadGestorDeMapa(LPVOID param) {
+	ThreadGestaoDeMapa* threadControl = (ThreadGestaoDeMapa*)param;
+
+	while (!threadControl->terminar) {
+		if (WaitForSingleObject(threadControl->hTimer, INFINITE) != WAIT_OBJECT_0) {
+			_tprintf(L"WaitForSingleObject failed (%d)\n", GetLastError());
+			break;
+		}
+		else {
+			Sleep(100); // espera atualizacao dos avioes
+			WaitForSingleObject(threadControl->hMutexAcessoMapa, INFINITE);
+			if (threadControl->MapaPartilhadoLocal.numAtualAvioes == -1) {
+				CopyMemory(&threadControl->MapaPartilhadoLocal, threadControl->MapaPartilhado, sizeof(MapaPartilhado));
+			}
+			else {
+				Aviao * listaPartilhada = threadControl->MapaPartilhado->avioesMapa;
+				for (int i = 0; i < MAXAVIOES; i++) {
+					Aviao* local = &threadControl->MapaPartilhadoLocal.avioesMapa[i];
+					int index = getAviao(local->id, listaPartilhada);
+					if (index > -1) {
+						if (listaPartilhada[index].segundosVivo == local->segundosVivo && local->id > 0) {
+							_tprintf(L"Aviao %d Desapareceu no radar.", local->id);
+							removerEm(index, listaPartilhada);
+							// pode entrar mais um 
+							ReleaseSemaphore(threadControl->hControloDeNumeroDeAvioes, 1, NULL);
+						}
+					}
+					else {
+						_tprintf(L"Erro nao encontrou aviao na mem partilhada 173");
+					}
+					
+				}
+				CopyMemory(&threadControl->MapaPartilhadoLocal, threadControl->MapaPartilhado, sizeof(MapaPartilhado));
+				
+				//Aviao* aux = &partilhado->avioesMapa[index];
+			}
+			ReleaseMutex(threadControl->hMutexAcessoMapa);
+		}
+	
+	}
+
+	return 0;
+}
+
+
+
 
 #pragma endregion 
 
 int _tmain(int argc, TCHAR* argv[]) {
-
-#pragma region unicode setup
 
 	//UNICODE: Por defeito, a consola Windows não processa caracteres wide. 
 	//A maneira mais fácil para ter esta funcionalidade é chamar _setmode:
@@ -146,29 +205,27 @@ int _tmain(int argc, TCHAR* argv[]) {
 	_setmode(_fileno(stdout), _O_WTEXT);
 	_setmode(_fileno(stderr), _O_WTEXT);
 #endif
-#pragma endregion 
-
-	// TODO fazer validacao com open no mutex do controlador para saber se ha outro controlador vivo
 
 #pragma region regedit keys setup
 	TCHAR key_dir[TAM] = TEXT("Software\\TRABALHOSO2\\");
 	HKEY handle = NULL; // handle para chave depois de aberta ou criada
 	DWORD handleRes = NULL;
 	TCHAR key_name[TAM] = TEXT("N_avioes"); //nome do par-valor
-
 	int maxAvioes = 0;
 	checkRegEditKeys(key_dir, handle, handleRes, TEXT("N_avioes"), &maxAvioes);
 #pragma endregion 
 
-#pragma region threads setup
 	Aeroporto aeroportos[MAXAEROPORTOS] = { 0 };
 	//Aviao avioes[MAXAVIOES] = { 0 };
 
-#pragma region setup lista de posicoes em mapa partilhado
+#pragma region lista de posicoes em mapa partilhado
 	HANDLE hMapaDePosicoesPartilhada = NULL;
 	HANDLE hMutexAcessoMapa = NULL;
-	setupMapaPartilhado(&hMapaDePosicoesPartilhada, &hMutexAcessoMapa);
-
+	int x = setupMapaPartilhado(&hMapaDePosicoesPartilhada, &hMutexAcessoMapa);
+	if (x != 0) {
+		_tprintf(TEXT("Controlador vai Terminar.\n"));
+		return -1;
+	}
 	//mapa de avioes
 	MapaPartilhado* mapaPartilhadoAvioes = (MapaPartilhado*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
 	WaitForSingleObject(hMutexAcessoMapa, INFINITE);
@@ -182,13 +239,12 @@ int _tmain(int argc, TCHAR* argv[]) {
 	controler.numAtualAvioes = &mapaPartilhadoAvioes->numAtualAvioes;
 	controler.hMutexAcessoMapa = &hMutexAcessoMapa;
 	
-	HANDLE hTimer = CreateWaitableTimer(NULL, FALSE, PINGTIMER);
-	if (NULL == hTimer) {
+	controler.hTimerPing = CreateWaitableTimer(NULL, FALSE, PINGTIMER);
+	if (NULL == controler.hTimerPing) {
 		_tprintf(L"CreateWaitableTimer failed (%d)\n", GetLastError());
 		return 1;
 	}
 
-	controler.hTimerPing = &hTimer;
 #pragma region semaphore de controlo instancias de avioes
 	HANDLE controloDeNumeroDeAvioes = CreateSemaphore(NULL, maxAvioes, maxAvioes, SEMAPHORE_NUM_AVIOES);
 	if (controloDeNumeroDeAvioes == NULL) {
@@ -197,6 +253,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 	}
 #pragma endregion 
 
+	HANDLE hThreads[2];
 
 	// ouvir mensagens dos avioes
 	MSGThread ler;
@@ -204,92 +261,35 @@ int _tmain(int argc, TCHAR* argv[]) {
 	HANDLE hThreadLeitura;
 	controler.leitura = &ler;
 	preparaParaLerInfoDeAvioes(controler.leitura, &hLerFileMap);
-	hThreadLeitura = CreateThread(NULL, 0, ThreadLerBufferCircular, &controler, 0, NULL);
+	hThreads[0] = CreateThread(NULL, 0, ThreadLerBufferCircular, &controler, 0, NULL);
 
+	// escrever para os avioes
 	ControllerToPlane escrever;
 	HANDLE hFileMap;
 	HANDLE hEscrita;
 	controler.escrita = &escrever;
 	ThreadEnvioDeMsgParaAvioes(controler.escrita, &hFileMap, &hEscrita);
-	hEscrita = CreateThread(NULL, 0, ThreadEscrever, &controler, 0, NULL);
+	hThreads[1] = CreateThread(NULL, 0, ThreadEscrever, &controler, 0, NULL);
 
-#pragma endregion 
-
-
-	
+	// gestor de mapa
+	ThreadGestaoDeMapa gestor;
+	gestor.hTimer = controler.hTimerPing;
+	gestor.MapaPartilhado = mapaPartilhadoAvioes;
+	gestor.MapaPartilhadoLocal.numAtualAvioes = -1;
+	gestor.hMutexAcessoMapa = &hMutexAcessoMapa;
+	gestor.hControloDeNumeroDeAvioes = controloDeNumeroDeAvioes;
+	gestor.terminar = 0;
+	hThreads[2] = CreateThread(NULL, 0, ThreadGestorDeMapa, &gestor, 0, NULL);
 
 	
 	// setup aeroportos inicias
-
 	adicionarAeroporto(TEXT("Lisbon"), 2, 2, aeroportos);
 	adicionarAeroporto(TEXT("Madrid"), 10, 10, aeroportos);
 	adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
 	adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
 
-#pragma region menu interface
-	// menu  
-	while (1) {
-		menuControlador();
-		TCHAR tokenstring[50] = { 0 };
-		_fgetts(tokenstring, 50, stdin);
-		tokenstring[_tcslen(tokenstring) - 1] = '\0';
-		TCHAR* ptr = NULL;
-		TCHAR delim[] = L" ";
-		TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
+	interacaoConsolaControlador(aeroportos, mapaPartilhadoAvioes);
 
-		TCHAR nome[100];
-		int y;
-		int x;
-		while (token != NULL)
-		{
-			//_tprintf(L"%ls\n", token);
-			if (_tcscmp(token, L"addAero") == 0) {
-				token = wcstok_s(NULL, delim, &ptr);
-				if (token != NULL) {
-					_tcscpy_s(nome, _countof(nome), token);
-					token = wcstok_s(NULL, delim, &ptr);
-					if (token != NULL) {
-						x = _tstoi(token);
-						token = wcstok_s(NULL, delim, &ptr);
-						if (token != NULL) {
-							y = _tstoi(token);
-							adicionarAeroporto(nome, x, y, aeroportos);
-						}
-					}
-				}
-			}
-			else if (_tcscmp(token, L"lista") == 0) {
-				listaAeroportos(aeroportos, NULL);
-				listaAvioes(mapaPartilhadoAvioes->avioesMapa, NULL);
-				break;
-			}
-			else if (_tcscmp(token, L"suspender") == 0) {
-				_putws(TEXT("suspende aceitação de novos aviões por parte dos utilizadores"));
-			}
-			else if (_tcscmp(token, L"ativar") == 0) {
-				_putws(TEXT("ativa aceitação de novos aviões por parte dos utilizadores"));
-			}
-			else if (_tcscmp(token, L"end") == 0) {
-				//_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
-			}
-			token = wcstok_s(NULL, delim, &ptr);
-		}
-	}
-
-#pragma endregion 
-
-
-	if (hEscrita != NULL)
-		WaitForSingleObject(hEscrita, INFINITE);
-
-	if (hThreadLeitura != NULL) {
-		WaitForSingleObject(hThreadLeitura, INFINITE);
-	}
-
-
-	//UnmapViewOfFile(ler.memPar);
-	//CloseHandles ... mas é feito automaticamente quando o processo termina
-
-	return 0;
-
+	if (hThreads[0] != NULL && hThreads[1] != NULL && hThreads[2] != NULL)
+		WaitForMultipleObjects(3, hThreads, TRUE, INFINITE);
 }

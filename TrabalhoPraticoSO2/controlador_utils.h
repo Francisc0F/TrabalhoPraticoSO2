@@ -11,8 +11,17 @@ typedef struct {
 	Aviao* avioes;
 	int* numAtualAvioes;
 	HANDLE* hMutexAcessoMapa;
-	HANDLE* hTimerPing;
+	HANDLE hTimerPing;
 }ThreadsControlerControlador;
+
+typedef struct {
+	MapaPartilhado* MapaPartilhado;
+	MapaPartilhado MapaPartilhadoLocal;
+	HANDLE* hMutexAcessoMapa;
+	HANDLE hControloDeNumeroDeAvioes;
+	HANDLE hTimer;
+	int terminar;
+}ThreadGestaoDeMapa;
 
 
 
@@ -20,6 +29,8 @@ void menuControlador();
 
 
 void adicionarAviao(Aviao* a, Aviao lista[]);
+void removerEm(int index, Aviao lista[]);
+
 void listaAvioes(Aviao lista[], TCHAR* out);
 
 int getAeroporto(int id, Aeroporto lista[]);
@@ -37,5 +48,7 @@ void enviarMensagemBroadCast(ControllerToPlane* escreve, TCHAR* info);
 
 void printAeroporto(pAeroporto aero, TCHAR* out);
 
-void setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso);
+int setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso);
+
+void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPartilhadoAvioes);
 

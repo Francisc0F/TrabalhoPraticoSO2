@@ -140,7 +140,7 @@ void preparaThreadDeGestaoViagens(ThreadGerirViagens* control) {
 void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
 	_tcscpy_s(escreve->info, _countof(escreve->info), info);
 	SetEvent(escreve->hEventEnviarMSG);
-	Sleep(100);
+	Sleep(20); // na thread tem um sleep de 30 no wait for single object, logo aqui tem de ser menos
 	ResetEvent(escreve->hEventEnviarMSG); //bloqueia evento
 }
 
@@ -156,43 +156,97 @@ void setupAviao(Aviao* aviao, ThreadsControlerAviao* control) {
 		TCHAR delim[] = L" ";
 
 		TCHAR* token = _tcstok_s(info, delim, &nextToken);
-		if (tokenValid(token)) {
-			aviao->max_passag = _tstoi(token);
-			if (tokenValid(nextToken)) {
-				aviao->posPorSegundo = _tstoi(nextToken);
-				break;
+		TCHAR* erro = TEXT("Erro, digite numeros separados por espaco - <NcapMaxima> <NposicoesSegundo>\n");
+
+		if (tokenValid(token) && isNumber(token)) {
+			int max_passag = _tstoi(token);
+			if (max_passag > 0) {
+				aviao->max_passag = max_passag;
 			}
 			else {
-				_tprintf(TEXT("erro, digite <NcapMaxima> <NposicoesSegundo>\n"));
+				_tprintf(L"Erro <NcapMaxima> tem de ser > 0");
+			}
+			if (tokenValid(nextToken) && isNumber(nextToken)) {
+				int pos = _tstoi(nextToken);
+				if (pos > 0) {
+					aviao->posPorSegundo = pos;
+					break;
+				}
+				else {
+					_tprintf(L"Erro <NposicoesSegundo> tem de ser > 0");
+				}
+			}
+			else {
+				_tprintf(erro);
 			}
 		}
 		else {
-			_tprintf(TEXT("erro, digite <NcapMaxima> <NposicoesSegundo>\n"));
+			_tprintf(erro);
 		}
 	}
 
+	TCHAR listaDeAeroportos[300] = { 0 };
 	// envio de info do aeroporto do aviao
-	_tprintf(TEXT("Escolha da Lista, o numero do aeroporto onde comecar\n"));
-	enviarMensagemParaControlador(control->escrita, TEXT("aero"));
-	_tprintf(TEXT("a espera de resposta...\n"));
-	WaitForSingleObject(control->leitura->hEvent, INFINITE);
-	_tprintf(TEXT("controlador: %s\n"), control->leitura->ultimaMsg);
+	while (1) {
+		_tprintf(TEXT("Escolha da Lista, o numero do aeroporto onde comecar\n"));
 
-	TCHAR idAero[100];
-	_fgetts(idAero, 100, stdin);
-	idAero[_tcslen(idAero) - 1] = '\0';
+		if (listaDeAeroportos[0] == '\0') {
+			enviarMensagemParaControlador(control->escrita, TEXT("aero"));
+			_tprintf(TEXT("a espera de resposta...\n"));
+			WaitForSingleObject(control->leitura->hEvent, INFINITE);
+			_tprintf(TEXT("controlador: %s\n"), control->leitura->ultimaMsg);
+			// faz cache
+			_tcscpy_s(listaDeAeroportos, _countof(listaDeAeroportos), control->leitura->ultimaMsg);
+		}
+		else {
+			_tprintf(listaDeAeroportos);
+		}
+		
+			 
+		TCHAR* erro = TEXT("erro tem de ter ser um Numero > 0.\n");
+		TCHAR idAero[100];
+		_fgetts(idAero, 100, stdin);
+		idAero[_tcslen(idAero) - 1] = '\0';
+		if (tokenValid(idAero) && isNumber(idAero)) {
+			int id = _tstoi(idAero);
+			if (id > 0) {
+				TCHAR send[100] = TEXT("idAero ");
+				_tcscat_s(send, 100, idAero);
+				enviarMensagemParaControlador(control->escrita, send);
+				WaitForSingleObject(control->leitura->hEvent, INFINITE);
 
-	aviao->idAeroporto = _tstoi(idAero);
+				_tprintf(TEXT("controlador: %s\n"), control->leitura->ultimaMsg);
+
+				if(_tcscmp(control->leitura->ultimaMsg, L"sucesso") == 0) {
+					aviao->idAeroporto = _tstoi(idAero);
+					break;
+				}
+				else {
+					
+				}
+			}else{
+				_tprintf(erro);
+			}
+		}
+		else {
+			_tprintf(erro);
+		}
+		
+	}
+
+
+	Sleep(500);
 	// envio de info do aviao  -> adiciona aviao no controlador
 	control->escrita->idAeroporto = aviao->idAeroporto;
 	control->escrita->capacidadePassageiros = aviao->max_passag;
 	control->escrita->posPorSegundo = aviao->posPorSegundo;
 	enviarMensagemParaControlador(control->escrita, TEXT("info"));
-	_tprintf(TEXT("a espera de resposta...\n"));
+	
+	//_tprintf(TEXT("a espera de resposta de cordenadas...\n"));
 	WaitForSingleObject(control->leitura->hEvent, INFINITE);
 	obterCordsDeString(control->leitura->ultimaMsg, &aviao->x, &aviao->y);
 
-	printAviao(aviao, NULL);
+	//printAviao(aviao, NULL);
 }
 
 int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso) {
@@ -295,9 +349,18 @@ int viajar(ThreadGerirViagens* dados) {
 
 				WaitForSingleObject(dados->hMutexAcessoAMapaPartilhado, INFINITE);
 				//CopyMemory(&local, partilhado, sizeof(MapaPartilhado)); TODO avaliar acesso mais performante com um CopyMemory
+
 #pragma region atualiza memoria partilhada direto -> live -> fica atualizado para todos os avioes e controlador
 				int index = getAviao(aviaoLocal->id, partilhado->avioesMapa);
 				Aviao* aux = &partilhado->avioesMapa[index];
+				if (aux == NULL) {
+					_tprintf(TEXT("\nMemoria Partilhada Invalida"));
+					TCHAR x[100];
+					_fgetts(x, 100, stdin);
+					ReleaseMutex(dados->hMutexAcessoAMapaPartilhado);
+					return;
+				}
+
 				int livre = -1;
 				if (aviaoLocal->statusViagem == 0 && aviaoLocal->proxDestinoX == nextX && aviaoLocal->proxDestinoY == nextY) {
 					_tprintf(TEXT("\nChegou"));
@@ -316,6 +379,7 @@ int viajar(ThreadGerirViagens* dados) {
 				}
 			
 #pragma endregion 
+
 				ReleaseMutex(dados->hMutexAcessoAMapaPartilhado);
 				_tprintf(TEXT("\n (x: %d, y: %d) status %d"), nextX, nextY, aviaoLocal->statusViagem);
 
@@ -375,13 +439,12 @@ void interacaoComConsolaAviao(Aviao * aviao, ControllerToPlane * ler , MSGThread
 		{
 			//_tprintf(L"%ls\n", token);
 			if (_tcscmp(token, L"prox") == 0) {
-				if (nextToken != NULL) {
+				if (tokenValid(nextToken) && isNumber(nextToken)) {
 					aviao->proxDestinoId = _tstoi(nextToken);
 					TCHAR msg[100] = TEXT("prox ");
 					_tcscat_s(msg, 100, nextToken);
 
 					enviarMensagemParaControlador(escreve, msg);
-
 					WaitForSingleObject(ler->hEvent, INFINITE);
 					obterCordsDeString(ler->ultimaMsg, &aviao->proxDestinoX, &aviao->proxDestinoY);
 					_tprintf(TEXT("controlador: %s\n"), ler->ultimaMsg);
@@ -391,6 +454,9 @@ void interacaoComConsolaAviao(Aviao * aviao, ControllerToPlane * ler , MSGThread
 						_tprintf(TEXT("Próximo destino definido.\n"));
 					}
 				}
+				else {
+					_tprintf(TEXT("Erro campo invalido, prox <idAeroporto>\n"));
+				}
 			}
 			else if (_tcscmp(token, TEXT("emb")) == 0) {
 				// todo
@@ -399,10 +465,7 @@ void interacaoComConsolaAviao(Aviao * aviao, ControllerToPlane * ler , MSGThread
 			else if (_tcscmp(token, L"init") == 0) {
 				_tprintf(TEXT("A traçar rota.\n"));
 				TCHAR info[100] = TEXT("init ");
-				//_tcscat_s(info, 300, _tstoi(proxDestino));
 				disparaEventoDeInicioViagem(ThreadViagens);
-
-				//_tprintf(TEXT("Iniciou viagem.\n"));
 			}
 			else if (_tcscmp(token, L"quit") == 0) {
 				// todo

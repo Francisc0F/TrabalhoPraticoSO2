@@ -8,7 +8,7 @@
 void menuControlador() {
 	_putws(TEXT("\naddAero <nome> <cordX> <cordY> - Adicionar aeroporto"));
 	_putws(TEXT("lista - lista toda a informação do aeroporto"));
-	_putws(TEXT("suspender ou ativar - aceitação de novos aviões por parte dos utilizadores"));
+//	_putws(TEXT("suspender ou ativar - aceitação de novos aviões por parte dos utilizadores"));
 	_putws(TEXT("end - Encerrar sistema, notifica todos os processos"));
 }
 
@@ -52,6 +52,7 @@ void adicionarAviao(Aviao *a, Aviao lista[]) {
 			lista[i].x = a->x;
 			lista[i].y = a->x;
 
+			lista[i].segundosVivo = 0;
 
 			lista[i].proxDestinoId = -1;
 			lista[i].proxDestinoX = -1;
@@ -73,10 +74,29 @@ int getAeroporto(int id, Aeroporto lista[]) {
 }
 
 
+void removerEm(int index, Aviao lista[]) {
+	// int id, int n_passag, int max_passag, int posPorSegundo, int idAero,
+	if (index + 1 > MAXAVIOES ) {
+		_tprintf(L"Exedeu Boundries");
+	}
+	else {
+		for (int i = index + 1; i < MAXAVIOES; i++) {
+			lista[i - 1] = lista[i];
+		}
+	}
 
+}
 
 
 void listaAvioes(Aviao lista[], TCHAR* out) {
+	TCHAR* titulo = L"Lista de avioes\n";
+	if (out != NULL) {
+		_tcscat_s(out, 100, titulo);
+	}
+	else {
+		_tprintf(titulo);
+	}
+	
 	for (int i = 0; i < MAXAVIOES; i++) {
 		if (lista[i].id != 0 ) {
 			if (out != NULL) {
@@ -93,6 +113,14 @@ void listaAvioes(Aviao lista[], TCHAR* out) {
 
 
 void listaAeroportos(Aeroporto lista[], TCHAR* out) {
+	TCHAR* titulo = L"Lista de avioes\n";
+	if (out != NULL) {
+		_tcscat_s(out, 100, titulo);
+	}
+	else {
+		_tprintf(titulo);
+	}
+
 	for (int i = 0; i < MAXAEROPORTOS; i++) {
 		if (_tcscmp(lista[i].nome, L"") != 0) {
 			if (out != NULL) {
@@ -252,7 +280,7 @@ void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_n
 	RegCloseKey(handle);
 }
 
-void setupMapaPartilhado(HANDLE * hMapaDePosicoesPartilhada, HANDLE * mutexAcesso) {
+int setupMapaPartilhado(HANDLE * hMapaDePosicoesPartilhada, HANDLE * mutexAcesso) {
 	 *hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
 	if (*hMapaDePosicoesPartilhada == NULL) {
 
@@ -269,12 +297,18 @@ void setupMapaPartilhado(HANDLE * hMapaDePosicoesPartilhada, HANDLE * mutexAcess
 			return -1;
 		}
 	}
+	else {
+		_tprintf(TEXT("Controlador ja em Execucao\n"));
+		return 1;
+	}
 	*mutexAcesso = CreateMutex(NULL, FALSE, MUTEX_MAPA_PARTILHADO);
 
 	if (*mutexAcesso == NULL) {
 		_tprintf(TEXT("Erro no mutexAcesso hMapaDePosicoesPartilhada\n"));
 		return -1;
 	}
+
+	return 0;
 
 }
 
@@ -330,18 +364,13 @@ void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 
 	ler->terminar = 0;
 
-	////temos de usar o mutex para aumentar o nConsumidores para termos os ids corretos
-	//WaitForSingleObject(ler->hMutex, INFINITE);
-	//ler->bufferPartilhado->nConsumidores++;
-	//ReleaseMutex(ler->bufferPartilhado);
-
 }
 
 void enviarMensagemBroadCast(ControllerToPlane* escreve, TCHAR* info) {
 	_tcscpy_s(escreve->msgToSend.info, _countof(escreve->msgToSend.info), info);
 	escreve->msgToSend.idAviao = -1;
 	SetEvent(escreve->hEventOrdemDeEscrever);
-	Sleep(100);
+	Sleep(50);
 	ResetEvent(escreve->hEventOrdemDeEscrever); //bloqueia evento
 }
 
@@ -349,6 +378,58 @@ void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info) {
 	_tcscpy_s(escreve->msgToSend.info, _countof(escreve->msgToSend.info), info);
 	escreve->msgToSend.idAviao = id;
 	SetEvent(escreve->hEventOrdemDeEscrever);
-	Sleep(100);
+	Sleep(50);
 	ResetEvent(escreve->hEventOrdemDeEscrever); //bloqueia evento
+}
+
+void interacaoConsolaControlador(Aeroporto * aeroportos, MapaPartilhado* mapaPartilhadoAvioes) {
+	// menu  
+	while (1) {
+		menuControlador();
+		TCHAR tokenstring[50] = { 0 };
+		_fgetts(tokenstring, 50, stdin);
+		tokenstring[_tcslen(tokenstring) - 1] = '\0';
+		TCHAR* ptr = NULL;
+		TCHAR delim[] = L" ";
+		TCHAR* token = wcstok_s(tokenstring, delim, &ptr);
+
+		TCHAR nome[100];
+		int y;
+		int x;
+		while (token != NULL)
+		{
+			//_tprintf(L"%ls\n", token);
+			if (_tcscmp(token, L"addAero") == 0) {
+				token = wcstok_s(NULL, delim, &ptr);
+				if (token != NULL) {
+					_tcscpy_s(nome, _countof(nome), token);
+					token = wcstok_s(NULL, delim, &ptr);
+					if (token != NULL) {
+						x = _tstoi(token);
+						token = wcstok_s(NULL, delim, &ptr);
+						if (token != NULL) {
+							y = _tstoi(token);
+							adicionarAeroporto(nome, x, y, aeroportos);
+						}
+					}
+				}
+			}
+			else if (_tcscmp(token, L"lista") == 0) {
+				listaAeroportos(aeroportos, NULL);
+				listaAvioes(mapaPartilhadoAvioes->avioesMapa, NULL);
+				break;
+			}
+			else if (_tcscmp(token, L"suspender") == 0) {
+				_putws(TEXT("suspende aceitação de novos aviões por parte dos utilizadores"));
+			}
+			else if (_tcscmp(token, L"ativar") == 0) {
+				_putws(TEXT("ativa aceitação de novos aviões por parte dos utilizadores"));
+			}
+			else if (_tcscmp(token, L"end") == 0) {
+				//_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
+			}
+			token = wcstok_s(NULL, delim, &ptr);
+		}
+	}
+
 }

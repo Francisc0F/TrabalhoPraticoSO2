@@ -43,6 +43,8 @@ struct c {
 	int max_passag;
 	int posPorSegundo;
 
+	int segundosVivo;
+
 	int proxDestinoId;
 	int proxDestinoX;
 	int proxDestinoY;
@@ -135,3 +137,4 @@ void obterCordsDeString(TCHAR* cords, int* x, int* y);
 void printAviao(Aviao* aviao, TCHAR* out);
 int getAviao(int id, Aviao lista[]);
 BOOL tokenValid(TCHAR* token);
+BOOL isNumber(TCHAR* text);

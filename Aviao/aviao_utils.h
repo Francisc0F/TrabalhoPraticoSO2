@@ -7,9 +7,11 @@ typedef struct {
 }ThreadsControlerAviao;
 
 typedef struct {
-	MSGThread* escrita;
+
 	HANDLE hTimer;
-	
+	MapaPartilhado* MapaPartilhado;
+	Aviao* AviaoLocal;
+	HANDLE hMutexAcessoAMapaPartilhado;
 	int terminar;
 }ThreadPingControler;
 
