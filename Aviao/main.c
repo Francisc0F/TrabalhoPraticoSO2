@@ -6,11 +6,8 @@
 #include "../utils.h"
 #include "aviao_utils.h"
 
-#define MAX 1000
-
-
-
 #pragma region aviao threads
+
 // ouvir mensagens do controller
 DWORD WINAPI ThreadReader(LPVOID param) {
 	ThreadsControlerAviao* threadControl = (ThreadsControlerAviao*)param;
@@ -25,7 +22,7 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 
 		WaitForSingleObject(dados->hMutex, INFINITE);
 		// escreve->id é unico e seguro de usar pois passa num mutex ao arrancar do programa 
-		if (dados->fileViewMap->idAviao == escreve->id) {
+		if (dados->fileViewMap->idAviao == escreve->idAviao) {
 			// guarda mensagem em variavel local
 			_tcscpy_s(dados->ultimaMsg, _countof(dados->ultimaMsg), dados->fileViewMap->info);
 			//_tprintf(TEXT("MSG: id: %d \nmsg: %s\n"), dados->fileViewMap->idAviao, dados->fileViewMap->info);
@@ -41,6 +38,7 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 	return 0;
 }
 
+// escrever mensagens para o controller
 DWORD WINAPI ThreadWriter(LPVOID param) {
 	MSGThread* dados = (MSGThread*)param;
 	MSGcel cel;
@@ -49,7 +47,7 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 	while (!dados->terminar) {
 		WaitForSingleObject(dados->hEventEnviarMSG, INFINITE);
 
-		cel.id = dados->id;
+		cel.id = dados->idAviao;
 		cel.x = dados->x;
 		cel.y = dados->y;
 		cel.aviao.max_passag = dados->capacidadePassageiros;
@@ -57,37 +55,25 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 		cel.aviao.idAeroporto = dados->idAeroporto;
 		_tcscpy_s(cel.info, _countof(cel.info), dados->info);
 
-		//esperamos por uma posicao para escrevermos
+		//esperar posicao escrita
 		WaitForSingleObject(dados->hSemEscrita, INFINITE);
 
-		//esperamos que o mutex esteja livre
 		WaitForSingleObject(dados->hMutex, INFINITE);
-
-		//vamos copiar a variavel cel para a memoria partilhada (para a posição de escrita)
-		
-		CopyMemory(&dados->memPar->buffer[dados->memPar->posE], &cel, sizeof(MSGcel));
-		dados->memPar->posE++; //incrementamos a posicao de escrita para o proximo produtor escrever na posicao seguinte
-
-		//se apos o incremento a posicao de escrita chegar ao fim, tenho de voltar ao inicio
-		if (dados->memPar->posE == TAM_BUFFER)
-			dados->memPar->posE = 0;
-
-		//libertamos o mutex
+		CopyMemory(&dados->bufferPartilhado->buffer[dados->bufferPartilhado->posE], &cel, sizeof(MSGcel));
+		dados->bufferPartilhado->posE++; 
+		if (dados->bufferPartilhado->posE == TAM_BUFFER_CIRCULAR)
+			dados->bufferPartilhado->posE = 0;
 		ReleaseMutex(dados->hMutex);
 
-		//libertamos o semaforo. temos de libertar uma posicao de leitura
+		//libertar posicao de leitura
 		ReleaseSemaphore(dados->hSemLeitura, 1, NULL);
-
-		//_tprintf(TEXT("Aviao %d enviou \n"), dados->id);
-		//printMSG(cel);
 		Sleep(1000);
 	}
 
 	return 0;
 }
 
-
-DWORD WINAPI gestoraDeViagens(LPVOID param) {
+DWORD WINAPI GestoraDeViagens(LPVOID param) {
 	ThreadGerirViagens* dados = (ThreadGerirViagens*)param;
 	
 	while (!dados->terminar) {
@@ -100,6 +86,23 @@ DWORD WINAPI gestoraDeViagens(LPVOID param) {
 	return 0;
 }
 
+DWORD WINAPI EstouAquiPing(LPVOID param) {
+	ThreadPingControler* threadControl = (ThreadPingControler*)param;
+
+	while (!threadControl->terminar) {
+
+		if (WaitForSingleObject(threadControl->hTimer, INFINITE) != WAIT_OBJECT_0) {
+			_tprintf(L"WaitForSingleObject failed (%d)\n", GetLastError());
+		}
+		else {
+			enviarMensagemParaControlador(threadControl->escrita, TEXT("aqui"));
+		}
+
+		
+	}
+
+	return 0;
+}
 #pragma endregion declaracao threads para fluxo de mensagens  aviao -> controlador , controlador -> aviao
 
 int _tmain(int argc, LPTSTR argv[]) {
@@ -135,7 +138,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 #pragma region init
 
-	
+	HANDLE hThreads[4];
 	ThreadsControlerAviao controler;
 
 	// thread para enviar mensagens pro controlador -> buffer circular
@@ -143,7 +146,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	MSGThread escreve;
 	BOOL primeiroProcesso = FALSE;
 	preparaEnvioDeMensagensParaOControlador(&hFileEscritaMap, &escreve, &primeiroProcesso);
-	HANDLE hThreadWriter = CreateThread(NULL, 0, ThreadWriter, &escreve, 0, NULL);
+	hThreads[0] = CreateThread(NULL, 0, ThreadWriter, &escreve, 0, NULL);
 
 	// thread para receber mensagens do controlador -> memoria partilhada acesso direto
 	ControllerToPlane ler;
@@ -151,11 +154,10 @@ int _tmain(int argc, LPTSTR argv[]) {
 	controler.escrita = &escreve;
 	controler.leitura = &ler;
 	preparaLeituraMSGdoAviao(&hFileLeituraMap, &ler);
-	HANDLE hThreadReader = CreateThread(NULL, 0, ThreadReader, &controler, 0, NULL);
+	hThreads[1] = CreateThread(NULL, 0, ThreadReader, &controler, 0, NULL);
 
-	
 	Aviao aviao;
-	aviao.id = escreve.id;
+	aviao.id = escreve.idAviao;
 	aviao.proxDestinoId = -1;
 	aviao.x = -1;
 	aviao.y = -1;
@@ -170,71 +172,26 @@ int _tmain(int argc, LPTSTR argv[]) {
 	ThreadViagens.hMutexAcessoAMapaPartilhado = hMutexMapaDePosicoesPartilhada;
 	ThreadViagens.aviaoMemLocal = &aviao;
 	ThreadViagens.MapaPartilhado = mapaAvioesPartilhado;
-	HANDLE hThreadViagens = CreateThread(NULL, 0, gestoraDeViagens, &ThreadViagens, 0, NULL);
+	hThreads[2] = CreateThread(NULL, 0, GestoraDeViagens, &ThreadViagens, 0, NULL);
 
+	aviao.processId = GetCurrentProcessId();
 	//obter dados inicias
 	setupAviao(&aviao, &controler);
+
+	ThreadPingControler ThreadPing;
+	ThreadPing.escrita = &escreve;
+	ThreadPing.hTimer = OpenWaitableTimer(NULL, NULL, PINGTIMER);
+	if (ThreadPing.hTimer == NULL) {
+		_tprintf(L"OpenWaitableTimer failed (%d)\n", GetLastError());
+	}
+
+	hThreads[3] = CreateThread(NULL, 0, EstouAquiPing, &ThreadPing, 0, NULL);
 #pragma endregion inicializar variaveis de controlo de threads e inicio de threads leitura e escrita
 
 #pragma region menu aviao
-
-	while (1) {
-		menuAviao();
-		TCHAR tokenstring[100];
-		_fgetts(tokenstring, 100, stdin);
-		tokenstring[_tcslen(tokenstring) - 1] = '\0';
-		TCHAR* nextToken;
-		TCHAR delim[] = L" ";
-		TCHAR* token = _tcstok_s(tokenstring, delim, &nextToken);
-		while (token != NULL)
-		{
-			//_tprintf(L"%ls\n", token);
-			if (_tcscmp(token, L"prox") == 0) {
-				if (nextToken != NULL) {
-					aviao.proxDestinoId = _tstoi(nextToken);
-					TCHAR msg[100] = TEXT("prox ");
-					_tcscat_s(msg, 100, nextToken);
-
-					enviarMensagemParaControlador(&escreve, msg);
-					
-					WaitForSingleObject(ler.hEvent, INFINITE);
-					obterCordsDeString(ler.ultimaMsg, &aviao.proxDestinoX, &aviao.proxDestinoY);
-					_tprintf(TEXT("controlador: %s\n"), ler.ultimaMsg);
-
-					_tprintf(TEXT("X:%d  Y:%d\n"), aviao.proxDestinoX, aviao.proxDestinoY);
-					if (_tcscmp(ler.ultimaMsg, L"erro") > 0) {
-						_tprintf(TEXT("Próximo destino definido.\n"));
-					}
-				}
-			}
-			else if (_tcscmp(token, TEXT("emb")) == 0) {
-				// todo
-				_tprintf(TEXT("Embarcar passageiros.\n"));
-			}
-			else if (_tcscmp(token, L"init") == 0) {
-				_tprintf(TEXT("A traçar rota.\n"));
-				TCHAR info[100] = TEXT("init ");
-				//_tcscat_s(info, 300, _tstoi(proxDestino));
-				disparaEventoDeInicioViagem(&ThreadViagens);
-				
-				//_tprintf(TEXT("Iniciou viagem.\n"));
-			}
-			else if (_tcscmp(token, L"quit") == 0) {
-				// todo
-				_tprintf(TEXT("Sair de instância de avião.\n"));
-			}
-			token = wcstok_s(NULL, delim, &nextToken);
-		}
-	}
-
+	interacaoComConsolaAviao(&aviao, &ler, &escreve, &ThreadViagens);
 #pragma endregion 
 
-
-	if (hThreadReader != NULL)
-		WaitForSingleObject(hThreadReader, INFINITE);
-
-	if (hThreadWriter != NULL) {
-		WaitForSingleObject(hThreadWriter, INFINITE);
-	}
-
+	if (hThreads[0] != NULL && hThreads[1] != NULL && hThreads[2] != NULL && hThreads[3] != NULL)
+		WaitForMultipleObjects(4, hThreads, TRUE, INFINITE);
 }

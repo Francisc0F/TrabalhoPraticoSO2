@@ -34,3 +34,4 @@ void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info);
 void printAeroporto(pAeroporto aero, TCHAR* out);
 
 void setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso);
+

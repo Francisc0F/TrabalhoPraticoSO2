@@ -281,15 +281,13 @@ void setupMapaPartilhado(HANDLE * hMapaDePosicoesPartilhada, HANDLE * mutexAcess
 
 void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 
-	BOOL primeiroProcesso = 0;
 	//criar semaforo que conta as escritas
-	ler->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SEMAPHORE_ESCRITA_MSG_TO_CONTROLER);
+	ler->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER_CIRCULAR, TAM_BUFFER_CIRCULAR, SEMAPHORE_ESCRITA_MSG_TO_CONTROLER);
 
-	//criar semaforo que conta as leituras
-	//0 porque nao ha nada para ser lido e depois podemos ir até um maximo de 10 posicoes para serem lidas
-	ler->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SEMAPHORE_LEITURA_MSG_TO_CONTROLER);
+	//nao ha nada para ler
+	ler->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER_CIRCULAR, SEMAPHORE_LEITURA_MSG_TO_CONTROLER);
 
-	//criar mutex para os produtores
+	//criar mutex para os consumidores neste caso so ha 1, o Controlador
 	ler->hMutex = CreateMutex(NULL, FALSE, MUTEX_CONSUMIDOR_MSG_TO_CONTROLER);
 
 	if (ler->hSemEscrita == NULL || ler->hSemLeitura == NULL || ler->hMutex == NULL) {
@@ -303,15 +301,13 @@ void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 
 	hLerFileMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, FILE_MAP_MSG_TO_CONTROLER);
 	if (hLerFileMap == NULL) {
-		primeiroProcesso = TRUE;
-		//criamos o bloco de memoria partilhada
 		hLerFileMap = CreateFileMapping(
 			INVALID_HANDLE_VALUE,
 			NULL,
 			PAGE_READWRITE,
 			0,
-			sizeof(BufferCircular), //tamanho da memoria partilhada
-			FILE_MAP_MSG_TO_CONTROLER);//nome do filemapping. nome que vai ser usado para partilha entre processos
+			sizeof(BufferCircular), 
+			FILE_MAP_MSG_TO_CONTROLER);
 
 		if (hLerFileMap == NULL) {
 			_tprintf(TEXT("Erro no CreateFileMapping\n"));
@@ -320,28 +316,25 @@ void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 	}
 
 	//mapeamos o bloco de memoria para o espaco de enderaçamento do nosso processo
-	ler->memPar = (BufferCircular*)MapViewOfFile(hLerFileMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	ler->bufferPartilhado = (BufferCircular*)MapViewOfFile(hLerFileMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
 
 
-	if (ler->memPar == NULL) {
+	if (ler->bufferPartilhado == NULL) {
 		_tprintf(TEXT("Erro no MapViewOfFile\n"));
 		return -1;
 	}
-
-	if (primeiroProcesso == TRUE) {
-		ler->memPar->nConsumidores = 0;
-		ler->memPar->nProdutores = 0;
-		ler->memPar->posE = 0;
-		ler->memPar->posL = 0;
-	}
+	// inicializar buffer circular partilhado 
+	ler->bufferPartilhado->nConsumidores = 0;
+	ler->bufferPartilhado->nProdutores = 0;
+	ler->bufferPartilhado->posE = 0;
+	ler->bufferPartilhado->posL = 0;
 
 	ler->terminar = 0;
 
-	//temos de usar o mutex para aumentar o nConsumidores para termos os ids corretos
-	WaitForSingleObject(ler->hMutex, INFINITE);
-	ler->memPar->nConsumidores++;
-	ler->id = ler->memPar->nConsumidores;
-	ReleaseMutex(ler->hMutex);
+	////temos de usar o mutex para aumentar o nConsumidores para termos os ids corretos
+	//WaitForSingleObject(ler->hMutex, INFINITE);
+	//ler->bufferPartilhado->nConsumidores++;
+	//ReleaseMutex(ler->bufferPartilhado);
 
 }
 

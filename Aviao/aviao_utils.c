@@ -69,14 +69,10 @@ void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane* ler) {
 }
 
 void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread* escreve, BOOL* primeiroProcesso) {
-	//criar semaforo que conta as escritas
-	escreve->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER, TAM_BUFFER, SEMAPHORE_ESCRITA_MSG_TO_CONTROLER);
+	escreve->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER_CIRCULAR, TAM_BUFFER_CIRCULAR, SEMAPHORE_ESCRITA_MSG_TO_CONTROLER);
 
-	//criar semaforo que conta as leituras
-	//0 porque nao ha nada para ser lido e depois podemos ir até um maximo de 10 posicoes para serem lidas
-	escreve->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER, SEMAPHORE_LEITURA_MSG_TO_CONTROLER);
+	escreve->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER_CIRCULAR, SEMAPHORE_LEITURA_MSG_TO_CONTROLER);
 
-	//criar mutex para os produtores
 	escreve->hMutex = CreateMutex(NULL, FALSE, MUTEX_PRODUTOR_MSG_TO_CONTROLER);
 
 	if (escreve->hSemEscrita == NULL || escreve->hSemLeitura == NULL || escreve->hMutex == NULL) {
@@ -95,10 +91,6 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 	}
 
 
-	//o openfilemapping vai abrir um filemapping com o nome que passamos no lpName
-	//se devolver um HANDLE ja existe e nao fazemos a inicializacao
-	//se devolver NULL nao existe e vamos fazer a inicializacao
-
 	*hFileEscritaMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, FILE_MAP_MSG_TO_CONTROLER);
 	if (*hFileEscritaMap == NULL) {
 		primeiroProcesso = TRUE;
@@ -108,8 +100,8 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 			NULL,
 			PAGE_READWRITE,
 			0,
-			sizeof(BufferCircular), //tamanho da memoria partilhada
-			FILE_MAP_MSG_TO_CONTROLER);//nome do filemapping. nome que vai ser usado para partilha entre processos
+			sizeof(BufferCircular), 
+			FILE_MAP_MSG_TO_CONTROLER);
 
 		if (*hFileEscritaMap == NULL) {
 			_tprintf(TEXT("Erro no CreateFileMapping\n"));
@@ -117,29 +109,19 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 		}
 	}
 
-	//mapeamos o bloco de memoria para o espaco de enderaçamento do nosso processo
-	escreve->memPar = (BufferCircular*)MapViewOfFile(*hFileEscritaMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-
-
-	if (escreve->memPar == NULL) {
+	escreve->bufferPartilhado = (BufferCircular*)MapViewOfFile(*hFileEscritaMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	if (escreve->bufferPartilhado == NULL) {
 		_tprintf(TEXT("Erro no MapViewOfFile\n"));
 		return -1;
 	}
 
-	if (primeiroProcesso == TRUE) {
-		escreve->memPar->nConsumidores = 0;
-		escreve->memPar->nProdutores = 0;
-		escreve->memPar->posE = 0;
-		escreve->memPar->posL = 0;
-	}
-
 	escreve->terminar = 0;
-	//temos de usar o mutex para aumentar o nProdutores para termos os ids corretos
-	WaitForSingleObject(escreve->hMutex, INFINITE);
-	escreve->memPar->nProdutores++;
-	escreve->id = escreve->memPar->nProdutores;
-	ReleaseMutex(escreve->hMutex);
 
+	//nProdutores, sao o que define os ids dos avioes
+	WaitForSingleObject(escreve->hMutex, INFINITE);
+	escreve->bufferPartilhado->nProdutores++;
+	escreve->idAviao = escreve->bufferPartilhado->nProdutores;
+	ReleaseMutex(escreve->hMutex);
 }
 
 void preparaThreadDeGestaoViagens(ThreadGerirViagens* control) {
@@ -182,6 +164,7 @@ void setupAviao(Aviao* aviao, ThreadsControlerAviao* control) {
 	// envio de info do aeroporto do aviao
 	_tprintf(TEXT("Escolha da Lista, o numero do aeroporto onde comecar\n"));
 	enviarMensagemParaControlador(control->escrita, TEXT("aero"));
+	_tprintf(TEXT("a espera de resposta...\n"));
 	WaitForSingleObject(control->leitura->hEvent, INFINITE);
 	_tprintf(TEXT("controlador: %s\n"), control->leitura->ultimaMsg);
 
@@ -195,7 +178,7 @@ void setupAviao(Aviao* aviao, ThreadsControlerAviao* control) {
 	control->escrita->capacidadePassageiros = aviao->max_passag;
 	control->escrita->posPorSegundo = aviao->posPorSegundo;
 	enviarMensagemParaControlador(control->escrita, TEXT("info"));
-
+	_tprintf(TEXT("a espera de resposta...\n"));
 	WaitForSingleObject(control->leitura->hEvent, INFINITE);
 	obterCordsDeString(control->leitura->ultimaMsg, &aviao->x, &aviao->y);
 
@@ -223,14 +206,53 @@ void atualizaPosicaoAviao(Aviao* a, int x, int y) {
 	a->y = y;
 }
 
+void updateAeroportoAviao(Aviao* a, int idAero) {
+	a->idAeroporto = idAero;
+}
+
+void updateAviao(Aviao* a,int idAero, int statusViagem, int x, int y) {
+	a->statusViagem = statusViagem;
+	updateAeroportoAviao(a, idAero);
+	atualizaPosicaoAviao(a, x, y);
+}
+
+void reCalcularRota(MapaPartilhado* partilhado, int currX, int currY, int * nextX, int* nextY) {
+	int quatroVizinhos[4];
+	quatroVizinhos[0] = verificaPosLivre(partilhado->avioesMapa, currX + 1, currY);
+	quatroVizinhos[1] = verificaPosLivre(partilhado->avioesMapa, currX - 1, currY);
+	quatroVizinhos[2] = verificaPosLivre(partilhado->avioesMapa, currX, currY + 1);
+	quatroVizinhos[3] = verificaPosLivre(partilhado->avioesMapa, currX, currY - 1);
+	int i = 0;
+	while (quatroVizinhos[i] == 0) {
+		i++;
+	}
+
+	switch (i)
+	{
+	case 0: {
+		*nextX = currX + 1;
+		break;
+	}
+	case 1: {
+		*nextX = currX - 1;
+		break;
+	}
+	case 2: {
+		*nextY = currY + 1;
+		break;
+	}
+	case 3: {
+		*nextY = currY - 1;
+		break;
+	}
+	}
+}
+
 int viajar(ThreadGerirViagens* dados) {
 
 	Aviao* aviaoLocal = dados->aviaoMemLocal;
 	MapaPartilhado * partilhado = dados->MapaPartilhado;
-	MapaPartilhado local;
 
-	//Aviao* mapaPartilhado = dados->MapaPartilhado->avioesMapa;
-	//Aviao mapaPartilhadoLocal[MAXAVIOES];
 	// prox posicao 	 dll
 	//TCHAR dll[MAX] = TEXT("C:\\Users\\Francisco\\source\\repos\\TrabalhoPraticoSO2\\SO2_TP_DLL_2021\\x64\\SO2_TP_DLL_2021.dll");
 	TCHAR dll[100] = TEXT(DLL);
@@ -249,34 +271,43 @@ int viajar(ThreadGerirViagens* dados) {
 			fRunTimeLinkSuccess = TRUE;
 			int nextX = aviaoLocal->proxDestinoX;
 			int nextY = aviaoLocal->proxDestinoY;
-
+			
 			int currX = aviaoLocal->x;
 			int currY = aviaoLocal->x;
 
 			aviaoLocal->statusViagem = 1;
 			while (aviaoLocal->statusViagem == 1) {
 				//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
-
 				aviaoLocal->statusViagem = (ProcAdd)(currX, currY, aviaoLocal->proxDestinoX, aviaoLocal->proxDestinoY, &nextX, &nextY);
 				// status 1 mov correta, 2 erro, 0 chegou 
-
-				_tprintf(TEXT("\n (x: %d, y: %d) status %d"), nextX, nextY, aviaoLocal->statusViagem);
+				// 
+				//_tprintf(TEXT("\n (x: %d, y: %d) status %d"), nextX, nextY, aviaoLocal->statusViagem);
 
 				WaitForSingleObject(dados->hMutexAcessoAMapaPartilhado, INFINITE);
-				//CopyMemory(&local, partilhado, sizeof(MapaPartilhado));
-				
-				int livre = verificaPosLivre(partilhado->avioesMapa, nextX, nextY);
-				if (livre == 1) {
-					int index = getAviao(aviaoLocal->id, partilhado->avioesMapa);
-					if (index > -1) {
-						Aviao* aux = &partilhado->avioesMapa[index];
-						aux->idAeroporto = -1;
-						aux->x = nextX;
-						aux->y = nextY;
+				//CopyMemory(&local, partilhado, sizeof(MapaPartilhado)); TODO avaliar acesso mais performante com um CopyMemory
+#pragma region atualiza memoria partilhada direto -> live -> fica atualizado para todos os avioes e controlador
+				int index = getAviao(aviaoLocal->id, partilhado->avioesMapa);
+				Aviao* aux = &partilhado->avioesMapa[index];
+				int livre = -1;
+				if (aviaoLocal->statusViagem == 0 && aviaoLocal->proxDestinoX == nextX && aviaoLocal->proxDestinoY == nextY) {
+					_tprintf(TEXT("\nChegou"));
+					updateAviao(aux, aviaoLocal->proxDestinoId, aviaoLocal->statusViagem, nextX, nextY);
+				}
+				else {
+					livre = verificaPosLivre(partilhado->avioesMapa, nextX, nextY);
+					if (livre == 1) {
+						updateAviao(aux, -1, aviaoLocal->statusViagem, nextX, nextY);
+					}
+					else {
+						_tprintf(TEXT("\n A recalcular rota"));
+						reCalcularRota(partilhado, currX, currY, &nextX, &nextY);
+						updateAviao(aux, -1, aviaoLocal->statusViagem, nextX, nextY);
 					}
 				}
-
+			
+#pragma endregion 
 				ReleaseMutex(dados->hMutexAcessoAMapaPartilhado);
+				_tprintf(TEXT("\n (x: %d, y: %d) status %d"), nextX, nextY, aviaoLocal->statusViagem);
 
 				if (livre == 1) {
 					atualizaPosicaoAviao(aviaoLocal, nextX, nextY);
@@ -318,4 +349,57 @@ int verificaPosLivre(Aviao* lista, int x, int y) {
 		}
 	}
 	return 1;
+}
+
+
+void interacaoComConsolaAviao(Aviao * aviao, ControllerToPlane * ler , MSGThread * escreve, ThreadGerirViagens * ThreadViagens) {
+	while (1) {
+		menuAviao();
+		TCHAR tokenstring[100];
+		_fgetts(tokenstring, 100, stdin);
+		tokenstring[_tcslen(tokenstring) - 1] = '\0';
+		TCHAR* nextToken;
+		TCHAR delim[] = L" ";
+		TCHAR* token = _tcstok_s(tokenstring, delim, &nextToken);
+		while (token != NULL)
+		{
+			//_tprintf(L"%ls\n", token);
+			if (_tcscmp(token, L"prox") == 0) {
+				if (nextToken != NULL) {
+					aviao->proxDestinoId = _tstoi(nextToken);
+					TCHAR msg[100] = TEXT("prox ");
+					_tcscat_s(msg, 100, nextToken);
+
+					enviarMensagemParaControlador(escreve, msg);
+
+					WaitForSingleObject(ler->hEvent, INFINITE);
+					obterCordsDeString(ler->ultimaMsg, &aviao->proxDestinoX, &aviao->proxDestinoY);
+					_tprintf(TEXT("controlador: %s\n"), ler->ultimaMsg);
+
+					_tprintf(TEXT("X:%d  Y:%d\n"), aviao->proxDestinoX, aviao->proxDestinoY);
+					if (_tcscmp(ler->ultimaMsg, L"erro") > 0) {
+						_tprintf(TEXT("Próximo destino definido.\n"));
+					}
+				}
+			}
+			else if (_tcscmp(token, TEXT("emb")) == 0) {
+				// todo
+				_tprintf(TEXT("Embarcar passageiros.\n"));
+			}
+			else if (_tcscmp(token, L"init") == 0) {
+				_tprintf(TEXT("A traçar rota.\n"));
+				TCHAR info[100] = TEXT("init ");
+				//_tcscat_s(info, 300, _tstoi(proxDestino));
+				disparaEventoDeInicioViagem(ThreadViagens);
+
+				//_tprintf(TEXT("Iniciou viagem.\n"));
+			}
+			else if (_tcscmp(token, L"quit") == 0) {
+				// todo
+				_tprintf(TEXT("Sair de instância de avião.\n"));
+			}
+			token = wcstok_s(NULL, delim, &nextToken);
+		}
+	}
+
 }

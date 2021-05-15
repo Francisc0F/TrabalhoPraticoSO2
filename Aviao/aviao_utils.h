@@ -6,6 +6,13 @@ typedef struct {
 	ControllerToPlane* leitura;
 }ThreadsControlerAviao;
 
+typedef struct {
+	MSGThread* escrita;
+	HANDLE* hTimer;
+	
+	int terminar;
+}ThreadPingControler;
+
 
 
 typedef int(__cdecl* MYPROC)(LPWSTR);
@@ -21,3 +28,4 @@ int viajar(ThreadGerirViagens* dados);
 void preparaThreadDeGestaoViagens(ThreadGerirViagens* control);
 void disparaEventoDeInicioViagem(ThreadGerirViagens* control);
 int verificaPosLivre(Aviao* lista, int x, int y);
+void interacaoComConsolaAviao(Aviao* aviao, ControllerToPlane* ler, MSGThread* escreve, ThreadGerirViagens* ThreadViagens);

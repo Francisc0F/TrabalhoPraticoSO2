@@ -7,6 +7,8 @@
 #define MAPA_PARTILHADO "MAPA_PARTILHADO"
 #define MUTEX_MAPA_PARTILHADO "MUTEX_MAPA_PARTILHADO"
 
+#define PINGTIMER "PINGTIMER"
+
 #define FILE_MAP_MSG_TO_PLANES "FILE_MAP_MSG_TO_PLANES"
 #define EVENT_MSG_TO_PLANES "EVENT_MSG_TO_PLANES"
 #define MUTEX_MSG_TO_PLANES "MUTEX_MSG_TO_PLANES"
@@ -20,7 +22,7 @@
 
 
 
-#define TAM_BUFFER 20
+#define TAM_BUFFER_CIRCULAR 100
 
 
 
@@ -34,6 +36,7 @@ struct t {
 typedef struct c Aviao, * pAviao;
 struct c {
 	int id;
+	int processId;
 	int idAeroporto;
 
 	int n_passag;
@@ -85,11 +88,11 @@ typedef struct {
 }MSGcel;
 
 typedef struct {
-	int nProdutores;
-	int nConsumidores;
-	int posE; //proxima posicao de escrita
-	int posL; //proxima posicao de leitura
-	MSGcel buffer[TAM_BUFFER]; //buffer circular em si (array de estruturas)
+	int nProdutores; // num avioes
+	int nConsumidores;// vai ser apenas um, o controlador
+	int posE; 
+	int posL;
+	MSGcel buffer[TAM_BUFFER_CIRCULAR]; 
 }BufferCircular;
 
 
@@ -106,9 +109,8 @@ typedef struct {
 	int capacidadePassageiros;
 	int posPorSegundo;
 	int idAeroporto;
-	int id;
-
-	BufferCircular* memPar;
+	int idAviao;
+	BufferCircular* bufferPartilhado;
 }MSGThread;
 
 

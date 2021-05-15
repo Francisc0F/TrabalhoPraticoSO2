@@ -12,7 +12,7 @@
 
 #pragma region threads declaration
 
-#pragma region escrever na memoria partilhada
+#pragma region thread de controlo de escrita de msg para todos os avioes
 DWORD WINAPI ThreadEscrever(LPVOID param) {
 	ThreadsControlerControlador* threadControl = (ThreadsControlerControlador*)param;
 	ControllerToPlane* dados = threadControl->escrita;
@@ -21,34 +21,27 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 		// espera evento ordem de enviar mensagem
 		WaitForSingleObject(dados->hEventOrdemDeEscrever, INFINITE);
 
-		//faço lock ao mutex
 		WaitForSingleObject(dados->hMutex, INFINITE);
-
-		//limpa memoria antes de fazer a copia
 		ZeroMemory(dados->fileViewMap, sizeof(MSGCtrlToPlane));
-				
 		CopyMemory(dados->fileViewMap, &dados->msgToSend, sizeof(MSGCtrlToPlane));
-
-		//liberto mutex
 		ReleaseMutex(dados->hMutex);
-
-		//evento ordem de leitura
-		//desbloqueia evento   
-		SetEvent(dados->hEvent);
-		Sleep(500);
-
+		
+		
+		//evento ordem para "ir ler" mensagem, para todos os avioes
+		SetEvent(dados->hEvent);// desbloqueia evento   
+		Sleep(300);
 		ResetEvent(dados->hEvent); //bloqueia evento
 	}
 	return 0;
 }
-
 #pragma endregion 
 	
 #pragma region buffer circular leitura 
 DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 	ThreadsControlerControlador* threadControl = (ThreadsControlerControlador*)param;
 	MSGThread* dados = threadControl->leitura;
-	MSGcel cel;
+	BufferCircular* bufferPartilhado = dados->bufferPartilhado;
+	MSGcel celLocal;
 	int soma = 0;
 	TCHAR* garbage = NULL;
 	while (!dados->terminar) {
@@ -57,56 +50,55 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 
 		WaitForSingleObject(dados->hMutex, INFINITE);
 
-		CopyMemory(&cel, &dados->memPar->buffer[dados->memPar->posL], sizeof(MSGcel));
-		dados->memPar->posL++; 
-
-		if (dados->memPar->posL == TAM_BUFFER)
-			dados->memPar->posL = 0;
+		CopyMemory(&celLocal, &bufferPartilhado->buffer[bufferPartilhado->posL], sizeof(MSGcel));
+		bufferPartilhado->posL++;
+		if (bufferPartilhado->posL == TAM_BUFFER_CIRCULAR)
+			bufferPartilhado->posL = 0;
 
 		ReleaseMutex(dados->hMutex);
 
 		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
 
-		_tprintf(TEXT("Aviao: %d msg: %s\n"), cel.id, cel.info);
+		_tprintf(TEXT("Aviao: %d msg: %s\n"), celLocal.id, celLocal.info);
 
-		if (_tcscmp(cel.info, TEXT("info") ) == 0) {
-			Aeroporto* aux = &threadControl->listaAeroportos[cel.aviao.idAeroporto - 1];
-			cel.aviao.id = cel.id;
-			cel.aviao.x = aux->x;
-			cel.aviao.y = aux->y;
-			adicionarAviao(&cel.aviao,threadControl->avioes);
+		if (_tcscmp(celLocal.info, TEXT("info") ) == 0) {
+			Aeroporto* aux = &threadControl->listaAeroportos[celLocal.aviao.idAeroporto - 1];
+			celLocal.aviao.id = celLocal.id;
+			celLocal.aviao.x = aux->x;
+			celLocal.aviao.y = aux->y;
+			adicionarAviao(&celLocal.aviao,threadControl->avioes);
 			
 			TCHAR send[100] = { 0 };
 			preparaStringdeCords(send, aux->x, aux->y);
-			enviarMensagemParaAviao(cel.id, threadControl->escrita, send);
+			enviarMensagemParaAviao(celLocal.id, threadControl->escrita, send);
 
-		}if (_tcscmp(cel.info, TEXT("aero")) == 0) {
-			_tprintf(TEXT("Enviou %s.\n"), cel.info);
+		}if (_tcscmp(celLocal.info, TEXT("aero")) == 0) {
+			_tprintf(TEXT("Enviou %s.\n"), celLocal.info);
 			TCHAR info[400]= TEXT("");
 			listaTudo(threadControl->listaAeroportos, info);
-			enviarMensagemParaAviao(cel.id, threadControl->escrita, info);
+			enviarMensagemParaAviao(celLocal.id, threadControl->escrita, info);
 		}
 		else {
 			TCHAR* nextToken;
 			TCHAR* delim = L" ";
-			TCHAR* token = _tcstok_s(cel.info, delim, &nextToken);
+			TCHAR* token = _tcstok_s(celLocal.info, delim, &nextToken);
 			if (_tcscmp(token, TEXT("prox")) == 0) {
 				if (nextToken != NULL) {
 					int proxDestino = _tcstol(nextToken, &garbage, 0);
 					int index = getAeroporto(proxDestino, threadControl->listaAeroportos);
 					if (index >= 0) {
-						_tprintf(TEXT("Aviao %d vai partir para %s.\n"), cel.id, threadControl->listaAeroportos[index].nome);
+						_tprintf(TEXT("Aviao %d vai partir para %s.\n"), celLocal.id, threadControl->listaAeroportos[index].nome);
 						
 						TCHAR send[100] = { 0 };
 						preparaStringdeCords(send, threadControl->listaAeroportos[index].x, threadControl->listaAeroportos[index].y);
-						enviarMensagemParaAviao(cel.id, threadControl->escrita, send);
+						enviarMensagemParaAviao(celLocal.id, threadControl->escrita, send);
 					}
 					else {
-						enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("erro"));
+						enviarMensagemParaAviao(celLocal.id, threadControl->escrita, TEXT("erro"));
 					}
 				}
 				else {
-					enviarMensagemParaAviao(cel.id, threadControl->escrita, TEXT("erro"));
+					enviarMensagemParaAviao(celLocal.id, threadControl->escrita, TEXT("erro"));
 				}
 			}
 		}
@@ -186,6 +178,22 @@ int _tmain(int argc, TCHAR* argv[]) {
 	hEscrita = CreateThread(NULL, 0, ThreadEscrever, &controler, 0, NULL);
 
 #pragma endregion 
+
+
+	HANDLE hTimer = CreateWaitableTimer(NULL, FALSE, PINGTIMER);
+	if (NULL == hTimer){
+		printf("CreateWaitableTimer failed (%d)\n", GetLastError());
+		return 1;
+	}
+
+	LARGE_INTEGER liDueTime;
+	liDueTime.QuadPart = -30000000LL; // 3 secs
+
+	if (!SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0))
+	{
+		printf("SetWaitableTimer failed (%d)\n", GetLastError());
+		return 2;
+	}
 	// setup aeroportos inicias
 
 	adicionarAeroporto(TEXT("Lisbon"), 2, 2, aeroportos);
