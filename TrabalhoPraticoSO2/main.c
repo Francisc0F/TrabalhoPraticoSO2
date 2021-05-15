@@ -66,8 +66,32 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 			celLocal.aviao.id = celLocal.id;
 			celLocal.aviao.x = aux->x;
 			celLocal.aviao.y = aux->y;
+
+			WaitForSingleObject(*threadControl->hMutexAcessoMapa, INFINITE);
 			adicionarAviao(&celLocal.aviao,threadControl->avioes);
+			(*threadControl->numAtualAvioes)++;
+			ReleaseMutex(*threadControl->hMutexAcessoMapa);
 			
+			if ((*threadControl->numAtualAvioes) == 1) {
+				//iniciar timer de aviso periodico de avioes
+				LARGE_INTEGER liDueTime;
+				liDueTime.QuadPart = -30000000LL; // comeca daqui a 3 
+				if (!SetWaitableTimer(*threadControl->hTimerPing, 
+					&liDueTime, 
+					3000,  // fica periodic a cada 3 secs 
+					NULL, 
+					NULL, 
+					0))
+				{
+					_tprintf(L"SetWaitableTimer failed (%d)\n", GetLastError());
+				}
+			}
+			else if((*threadControl->numAtualAvioes) == 0){
+				// todo cancel waitabletimer
+			}
+		
+
+
 			TCHAR send[100] = { 0 };
 			preparaStringdeCords(send, aux->x, aux->y);
 			enviarMensagemParaAviao(celLocal.id, threadControl->escrita, send);
@@ -75,7 +99,7 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 		}if (_tcscmp(celLocal.info, TEXT("aero")) == 0) {
 			_tprintf(TEXT("Enviou %s.\n"), celLocal.info);
 			TCHAR info[400]= TEXT("");
-			listaTudo(threadControl->listaAeroportos, info);
+			listaAeroportos(threadControl->listaAeroportos, info);
 			enviarMensagemParaAviao(celLocal.id, threadControl->escrita, info);
 		}
 		else {
@@ -147,13 +171,25 @@ int _tmain(int argc, TCHAR* argv[]) {
 
 	//mapa de avioes
 	MapaPartilhado* mapaPartilhadoAvioes = (MapaPartilhado*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	WaitForSingleObject(hMutexAcessoMapa, INFINITE);
+	mapaPartilhadoAvioes->numAtualAvioes = 0;
+	ReleaseMutex(hMutexAcessoMapa);
 #pragma endregion
 
 	ThreadsControlerControlador controler;
 	controler.listaAeroportos = aeroportos;
 	controler.avioes = mapaPartilhadoAvioes->avioesMapa;
+	controler.numAtualAvioes = &mapaPartilhadoAvioes->numAtualAvioes;
+	controler.hMutexAcessoMapa = &hMutexAcessoMapa;
+	
+	HANDLE hTimer = CreateWaitableTimer(NULL, FALSE, PINGTIMER);
+	if (NULL == hTimer) {
+		_tprintf(L"CreateWaitableTimer failed (%d)\n", GetLastError());
+		return 1;
+	}
 
-#pragma region semaphore de controlo do numero de avioes
+	controler.hTimerPing = &hTimer;
+#pragma region semaphore de controlo instancias de avioes
 	HANDLE controloDeNumeroDeAvioes = CreateSemaphore(NULL, maxAvioes, maxAvioes, SEMAPHORE_NUM_AVIOES);
 	if (controloDeNumeroDeAvioes == NULL) {
 		_tprintf(TEXT("Erro no CreateSemaphore controloDeNumeroDeAvioes\n"));
@@ -180,20 +216,9 @@ int _tmain(int argc, TCHAR* argv[]) {
 #pragma endregion 
 
 
-	HANDLE hTimer = CreateWaitableTimer(NULL, FALSE, PINGTIMER);
-	if (NULL == hTimer){
-		printf("CreateWaitableTimer failed (%d)\n", GetLastError());
-		return 1;
-	}
+	
 
-	LARGE_INTEGER liDueTime;
-	liDueTime.QuadPart = -30000000LL; // 3 secs
-
-	if (!SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0))
-	{
-		printf("SetWaitableTimer failed (%d)\n", GetLastError());
-		return 2;
-	}
+	
 	// setup aeroportos inicias
 
 	adicionarAeroporto(TEXT("Lisbon"), 2, 2, aeroportos);
@@ -234,7 +259,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 				}
 			}
 			else if (_tcscmp(token, L"lista") == 0) {
-				//listaTudo(aeroportos, NULL);
+				listaAeroportos(aeroportos, NULL);
 				listaAvioes(mapaPartilhadoAvioes->avioesMapa, NULL);
 				break;
 			}

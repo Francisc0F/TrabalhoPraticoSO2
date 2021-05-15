@@ -8,7 +8,7 @@ typedef struct {
 
 typedef struct {
 	MSGThread* escrita;
-	HANDLE* hTimer;
+	HANDLE hTimer;
 	
 	int terminar;
 }ThreadPingControler;

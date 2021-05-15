@@ -63,3 +63,8 @@ void obterCordsDeString(TCHAR* msg, int *x, int *y) {
 	*x = _tstoi(cords);
 	*y = _tstoi(cordY);
 }
+
+
+BOOL tokenValid(TCHAR* token) {
+	return token != NULL && _tcscmp(token, L"") > 0 && token != L"\0" && _tcscmp(token, L" ") > 0;
+}

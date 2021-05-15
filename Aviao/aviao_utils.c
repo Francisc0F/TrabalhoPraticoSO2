@@ -146,21 +146,31 @@ void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
 
 
 void setupAviao(Aviao* aviao, ThreadsControlerAviao* control) {
-	_tprintf(TEXT("Indique cap maxima, numero posicoes por segundo -> <NcapMaxima> <NposicoesSegundo>\n"));
-	TCHAR info[100];
-	_fgetts(info, 100, stdin);
-	info[_tcslen(info) - 1] = '\0';
+	while (1) {
+		_tprintf(TEXT("Indique cap maxima, numero posicoes por segundo -> <NcapMaxima> <NposicoesSegundo>\n"));
+		TCHAR info[100];
+		_fgetts(info, 100, stdin);
+		info[_tcslen(info) - 1] = '\0';
 
-	TCHAR* nextToken;
-	TCHAR delim[] = L" ";
+		TCHAR* nextToken;
+		TCHAR delim[] = L" ";
 
-	TCHAR* token = _tcstok_s(info, delim, &nextToken);
-	if (token != NULL) {
-		aviao->max_passag = _tstoi(token);
-		if (nextToken != NULL) {
-			aviao->posPorSegundo = _tstoi(nextToken);
+		TCHAR* token = _tcstok_s(info, delim, &nextToken);
+		if (tokenValid(token)) {
+			aviao->max_passag = _tstoi(token);
+			if (tokenValid(nextToken)) {
+				aviao->posPorSegundo = _tstoi(nextToken);
+				break;
+			}
+			else {
+				_tprintf(TEXT("erro, digite <NcapMaxima> <NposicoesSegundo>\n"));
+			}
+		}
+		else {
+			_tprintf(TEXT("erro, digite <NcapMaxima> <NposicoesSegundo>\n"));
 		}
 	}
+
 	// envio de info do aeroporto do aviao
 	_tprintf(TEXT("Escolha da Lista, o numero do aeroporto onde comecar\n"));
 	enviarMensagemParaControlador(control->escrita, TEXT("aero"));

@@ -29,15 +29,14 @@ void adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]) {
 
 
 void printAeroporto(pAeroporto aero, TCHAR* out) {
+	TCHAR * text = L"\nid: [%d] \nNome: [%s]\nPosicao: (%d, %d)\n";
 	TCHAR aux[100];
 	if (out != NULL) {
-		_stprintf_s(aux, 100, L"\nid: [%d] \nNome: [%s]\nPosicao: (%d, %d)\n",aero->id, aero->nome, aero->x, aero->y);
+		_stprintf_s(aux, 100, text,aero->id, aero->nome, aero->x, aero->y);
 		_tcscat_s(out, 300, aux);
 	}
 	else {
-		_tprintf(TEXT("\nid: [%d]\n"), aero->id);
-		_tprintf(TEXT("Nome: [%s]\n"), aero->nome);
-		_tprintf(TEXT("Posicao: (%d, %d)\n"), aero->x, aero->y);
+		_tprintf(text,aero->id, aero->nome, aero->x, aero->y);
 	}
 }
 
@@ -93,7 +92,7 @@ void listaAvioes(Aviao lista[], TCHAR* out) {
 }
 
 
-void listaTudo(Aeroporto lista[], TCHAR* out) {
+void listaAeroportos(Aeroporto lista[], TCHAR* out) {
 	for (int i = 0; i < MAXAEROPORTOS; i++) {
 		if (_tcscmp(lista[i].nome, L"") != 0) {
 			if (out != NULL) {

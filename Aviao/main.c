@@ -93,11 +93,11 @@ DWORD WINAPI EstouAquiPing(LPVOID param) {
 
 		if (WaitForSingleObject(threadControl->hTimer, INFINITE) != WAIT_OBJECT_0) {
 			_tprintf(L"WaitForSingleObject failed (%d)\n", GetLastError());
+			break;
 		}
 		else {
 			enviarMensagemParaControlador(threadControl->escrita, TEXT("aqui"));
 		}
-
 		
 	}
 
@@ -180,12 +180,16 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 	ThreadPingControler ThreadPing;
 	ThreadPing.escrita = &escreve;
-	ThreadPing.hTimer = OpenWaitableTimer(NULL, NULL, PINGTIMER);
+	ThreadPing.hTimer = OpenWaitableTimer(TIMER_ALL_ACCESS , NULL, PINGTIMER);
+	
 	if (ThreadPing.hTimer == NULL) {
 		_tprintf(L"OpenWaitableTimer failed (%d)\n", GetLastError());
+		TCHAR cmd[23];
+		_fgetts(cmd, 23, stdin);
+		return -2;
 	}
-
-	hThreads[3] = CreateThread(NULL, 0, EstouAquiPing, &ThreadPing, 0, NULL);
+	ThreadPing.terminar = 0;
+	hThreads[3] = CreateThread(NULL, 0, EstouAquiPing, &ThreadPing, 0,NULL);
 #pragma endregion inicializar variaveis de controlo de threads e inicio de threads leitura e escrita
 
 #pragma region menu aviao

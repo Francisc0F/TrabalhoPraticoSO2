@@ -9,6 +9,9 @@ typedef struct {
 	ControllerToPlane* escrita;
 	Aeroporto* listaAeroportos;
 	Aviao* avioes;
+	int* numAtualAvioes;
+	HANDLE* hMutexAcessoMapa;
+	HANDLE* hTimerPing;
 }ThreadsControlerControlador;
 
 
@@ -21,9 +24,8 @@ void listaAvioes(Aviao lista[], TCHAR* out);
 
 int getAeroporto(int id, Aeroporto lista[]);
 
-
 void adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]);
-void listaTudo(Aeroporto lista[], TCHAR* out);
+void listaAeroportos(Aeroporto lista[], TCHAR* out);
 void inicializarLista(Aeroporto lista[]);
 
 void ThreadEnvioDeMsgParaAvioes(ControllerToPlane* escrever, HANDLE* hFileMap, HANDLE* hEscrita);
@@ -31,6 +33,8 @@ void checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_n
 void preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap);
 
 void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info);
+void enviarMensagemBroadCast(ControllerToPlane* escreve, TCHAR* info);
+
 void printAeroporto(pAeroporto aero, TCHAR* out);
 
 void setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso);

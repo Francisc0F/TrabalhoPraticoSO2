@@ -116,6 +116,7 @@ typedef struct {
 
 typedef struct {
 	Aviao avioesMapa[MAXAVIOES];
+	int numAtualAvioes;
 }MapaPartilhado;
 
 typedef struct {
@@ -133,3 +134,4 @@ void preparaStringdeCords(TCHAR* send, int x, int y);
 void obterCordsDeString(TCHAR* cords, int* x, int* y);
 void printAviao(Aviao* aviao, TCHAR* out);
 int getAviao(int id, Aviao lista[]);
+BOOL tokenValid(TCHAR* token);
