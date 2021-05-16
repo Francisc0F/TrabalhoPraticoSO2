@@ -168,8 +168,9 @@ DWORD WINAPI ThreadGestorDeMapa(LPVOID param) {
 					int index = getAviao(local->id, listaPartilhada);
 					if (index > -1) {
 						if (listaPartilhada[index].segundosVivo == local->segundosVivo && local->id > 0) {
-							_tprintf(L"Aviao %d Desapareceu no radar.", local->id);
+							_tprintf(L"Aviao %d Desapareceu no radar.\n", local->id);
 							removerEm(index, listaPartilhada);
+							threadControl->MapaPartilhadoLocal.numAtualAvioes--;
 							// pode entrar mais um 
 							ReleaseSemaphore(threadControl->hControloDeNumeroDeAvioes, 1, NULL);
 						}
@@ -180,8 +181,6 @@ DWORD WINAPI ThreadGestorDeMapa(LPVOID param) {
 					
 				}
 				CopyMemory(&threadControl->MapaPartilhadoLocal, threadControl->MapaPartilhado, sizeof(MapaPartilhado));
-				
-				//Aviao* aux = &partilhado->avioesMapa[index];
 			}
 			ReleaseMutex(threadControl->hMutexAcessoMapa);
 		}
@@ -190,9 +189,6 @@ DWORD WINAPI ThreadGestorDeMapa(LPVOID param) {
 
 	return 0;
 }
-
-
-
 
 #pragma endregion 
 
@@ -206,13 +202,19 @@ int _tmain(int argc, TCHAR* argv[]) {
 	_setmode(_fileno(stderr), _O_WTEXT);
 #endif
 
+	TCHAR* erroControl = TEXT("Controlador vai Terminar.\n");
+
 #pragma region regedit keys setup
 	TCHAR key_dir[TAM] = TEXT("Software\\TRABALHOSO2\\");
 	HKEY handle = NULL; // handle para chave depois de aberta ou criada
 	DWORD handleRes = NULL;
 	TCHAR key_name[TAM] = TEXT("N_avioes"); //nome do par-valor
 	int maxAvioes = 0;
-	checkRegEditKeys(key_dir, handle, handleRes, TEXT("N_avioes"), &maxAvioes);
+	int check = checkRegEditKeys(key_dir, handle, handleRes, TEXT("N_avioes"), &maxAvioes);
+	if (check != 0) {
+		_tprintf(erroControl);
+		return -1;
+	}
 #pragma endregion 
 
 	Aeroporto aeroportos[MAXAEROPORTOS] = { 0 };
@@ -221,9 +223,9 @@ int _tmain(int argc, TCHAR* argv[]) {
 #pragma region lista de posicoes em mapa partilhado
 	HANDLE hMapaDePosicoesPartilhada = NULL;
 	HANDLE hMutexAcessoMapa = NULL;
-	int x = setupMapaPartilhado(&hMapaDePosicoesPartilhada, &hMutexAcessoMapa);
-	if (x != 0) {
-		_tprintf(TEXT("Controlador vai Terminar.\n"));
+	check = setupMapaPartilhado(&hMapaDePosicoesPartilhada, &hMutexAcessoMapa);
+	if (check != 0) {
+		_tprintf(erroControl);
 		return -1;
 	}
 	//mapa de avioes
@@ -253,14 +255,18 @@ int _tmain(int argc, TCHAR* argv[]) {
 	}
 #pragma endregion 
 
-	HANDLE hThreads[2];
+	HANDLE hThreads[3];
 
 	// ouvir mensagens dos avioes
 	MSGThread ler;
 	HANDLE hLerFileMap;
 	HANDLE hThreadLeitura;
 	controler.leitura = &ler;
-	preparaParaLerInfoDeAvioes(controler.leitura, &hLerFileMap);
+	check = preparaParaLerInfoDeAvioes(controler.leitura, &hLerFileMap);
+	if (check != 0) {
+		_tprintf(erroControl);
+		return -1;
+	}
 	hThreads[0] = CreateThread(NULL, 0, ThreadLerBufferCircular, &controler, 0, NULL);
 
 	// escrever para os avioes
@@ -268,7 +274,12 @@ int _tmain(int argc, TCHAR* argv[]) {
 	HANDLE hFileMap;
 	HANDLE hEscrita;
 	controler.escrita = &escrever;
-	ThreadEnvioDeMsgParaAvioes(controler.escrita, &hFileMap, &hEscrita);
+	check = ThreadEnvioDeMsgParaAvioes(controler.escrita, &hFileMap, &hEscrita);
+	if (check != 0) {
+		_tprintf(erroControl);
+		return -1;
+	}
+
 	hThreads[1] = CreateThread(NULL, 0, ThreadEscrever, &controler, 0, NULL);
 
 	// gestor de mapa
@@ -288,7 +299,7 @@ int _tmain(int argc, TCHAR* argv[]) {
 	adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
 	adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
 
-	interacaoConsolaControlador(aeroportos, mapaPartilhadoAvioes);
+	interacaoConsolaControlador(aeroportos, mapaPartilhadoAvioes, &hMutexAcessoMapa, &escrever);
 
 	if (hThreads[0] != NULL && hThreads[1] != NULL && hThreads[2] != NULL)
 		WaitForMultipleObjects(3, hThreads, TRUE, INFINITE);

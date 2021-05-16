@@ -12,8 +12,8 @@ int getAviao(int id, Aviao lista[]) {
 }
 
 void printAviao(Aviao* aviao, TCHAR* out) {
-	TCHAR* txt = TEXT("id: [%d] Em sistema à %d secs\nIdAeroPorto atual: %d (%d, %d)\n n_passag: %d\n max_passag: %d\n posPorSegundo: %d\n");
-	TCHAR* txtEmViagem = TEXT("id: [%d] Em sistema à %d secs\n Em viagem (x:%d, y:%d)\n posPorSegundo: %d\n");
+	TCHAR* txt = TEXT("id: [%d] Em sistema à %d secs\nIdAeroPorto atual: %d (%d, %d)\nn_passag: %d\n max_passag: %d\nposPorSegundo: %d\n");
+	TCHAR* txtEmViagem = TEXT("id: [%d] Em sistema à %d secs\nEm viagem (x:%d, y:%d)\nposPorSegundo: %d\n");
 	TCHAR aux[100];
 	if (out != NULL) {
 		if (aviao->idAeroporto == -1) {
@@ -37,6 +37,26 @@ void printAviao(Aviao* aviao, TCHAR* out) {
 		}
 		
 	}
+}
+
+void atualizaPosicaoAviao(Aviao* a, int x, int y) {
+	a->x = x;
+	a->y = y;
+}
+
+void updateAviao(Aviao* a, int idAero, int statusViagem, int x, int y) {
+	a->statusViagem = statusViagem;
+	updateAeroportoAviao(a, idAero);
+	atualizaPosicaoAviao(a, x, y);
+}
+void apagaDoSistema(Aviao* a) {
+	updateAviao(a, 0, -1, -1, -1);
+	a->id == 0;
+}
+
+
+void updateAeroportoAviao(Aviao* a, int idAero) {
+	a->idAeroporto = idAero;
 }
 
 

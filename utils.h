@@ -136,5 +136,11 @@ void preparaStringdeCords(TCHAR* send, int x, int y);
 void obterCordsDeString(TCHAR* cords, int* x, int* y);
 void printAviao(Aviao* aviao, TCHAR* out);
 int getAviao(int id, Aviao lista[]);
+
 BOOL tokenValid(TCHAR* token);
 BOOL isNumber(TCHAR* text);
+
+void atualizaPosicaoAviao(Aviao* a, int x, int y);
+void updateAviao(Aviao* a, int idAero, int statusViagem, int x, int y);
+void updateAeroportoAviao(Aviao * a, int idAero);
+void apagaDoSistema(Aviao* a);

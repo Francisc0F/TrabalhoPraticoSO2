@@ -265,20 +265,6 @@ int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso) 
 	}
 }
 
-void atualizaPosicaoAviao(Aviao* a, int x, int y) {
-	a->x = x;
-	a->y = y;
-}
-
-void updateAeroportoAviao(Aviao* a, int idAero) {
-	a->idAeroporto = idAero;
-}
-
-void updateAviao(Aviao* a,int idAero, int statusViagem, int x, int y) {
-	a->statusViagem = statusViagem;
-	updateAeroportoAviao(a, idAero);
-	atualizaPosicaoAviao(a, x, y);
-}
 
 void reCalcularRota(MapaPartilhado* partilhado, int currX, int currY, int * nextX, int* nextY) {
 	int quatroVizinhos[4];
@@ -441,6 +427,11 @@ void interacaoComConsolaAviao(Aviao * aviao, ControllerToPlane * ler , MSGThread
 			if (_tcscmp(token, L"prox") == 0) {
 				if (tokenValid(nextToken) && isNumber(nextToken)) {
 					aviao->proxDestinoId = _tstoi(nextToken);
+					if (aviao->idAeroporto == aviao->proxDestinoId) {
+						_tprintf(TEXT("Próximo destino tem de ser Diferente do Atual.\n"));
+						break;
+					}
+					
 					TCHAR msg[100] = TEXT("prox ");
 					_tcscat_s(msg, 100, nextToken);
 
@@ -450,7 +441,7 @@ void interacaoComConsolaAviao(Aviao * aviao, ControllerToPlane * ler , MSGThread
 					_tprintf(TEXT("controlador: %s\n"), ler->ultimaMsg);
 
 					_tprintf(TEXT("X:%d  Y:%d\n"), aviao->proxDestinoX, aviao->proxDestinoY);
-					if (_tcscmp(ler->ultimaMsg, L"erro") > 0) {
+					if (_tcscmp(ler->ultimaMsg, L"erro") != 0) {
 						_tprintf(TEXT("Próximo destino definido.\n"));
 					}
 				}
