@@ -88,9 +88,7 @@ void removerEm(int index, Aviao lista[]) {
 
 void removerTodos(Aviao lista[]) {
 	for (int i = 0; i < MAXAVIOES; i++) {
-		if (lista[i].id != 0) {
-			apagaDoSistema(&lista[i]);
-		}
+		apagaDoSistema(&lista[i]);
 	}
 }
 
@@ -417,7 +415,13 @@ void interacaoConsolaControlador(Aeroporto * aeroportos, MapaPartilhado* mapaPar
 				}
 				ReleaseMutex(*mutexAccessoMapa);
 				enviarMensagemBroadCast(escrita, TEXT("terminar"));
-				_tprintf(TEXT("Encerrar sistema, todos os processos serão notificados.\n"));
+				_tprintf(TEXT("A Encerrar sistema...\nTodos os processos serão notificados.\n"));
+				Sleep(1000);
+
+				_tprintf(TEXT("Controlador terminou.\n"));
+				TCHAR cmd[23];
+				_fgetts(cmd, 23, stdin);
+				exit(4);
 			}
 			token = wcstok_s(NULL, delim, &ptr);
 		}

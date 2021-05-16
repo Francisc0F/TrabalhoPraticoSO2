@@ -30,10 +30,17 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 		}
 		else if (dados->fileViewMap->idAviao == -1) {
 			_tprintf(TEXT("Notificação Geral: %s\n"), dados->fileViewMap->info);
+			if ((_tcscmp(dados->fileViewMap->info, L"terminar") == 0)) {
+				_tprintf(TEXT("Aviao Terminou.\n"));
+				TCHAR cmd[23];
+				_fgetts(cmd, 23, stdin);
+				exit(0);
+			}
+		
 		}
 		ReleaseMutex(dados->hMutex);
 
-		Sleep(100);
+		Sleep(200);
 	}
 
 	return 0;

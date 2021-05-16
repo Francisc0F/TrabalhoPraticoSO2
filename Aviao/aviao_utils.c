@@ -383,6 +383,7 @@ int viajar(ThreadGerirViagens* dados) {
 				}
 			}
 			if (aviaoLocal->statusViagem == 0) {
+				aviaoLocal->idAeroporto = aviaoLocal->proxDestinoId;
 				fFreeResult = FreeLibrary(hinstLib);
 				return aviaoLocal->statusViagem;
 			}
@@ -455,12 +456,19 @@ void interacaoComConsolaAviao(Aviao * aviao, ControllerToPlane * ler , MSGThread
 			}
 			else if (_tcscmp(token, L"init") == 0) {
 				_tprintf(TEXT("A traçar rota.\n"));
-				TCHAR info[100] = TEXT("init ");
-				disparaEventoDeInicioViagem(ThreadViagens);
+				if (aviao->proxDestinoId != aviao->idAeroporto) {
+					TCHAR info[100] = TEXT("init ");
+					disparaEventoDeInicioViagem(ThreadViagens);
+				}
+				else {
+					_tprintf(TEXT("Nao pode ser o aeroporto onde se Encontra. Escolha Outro destino, com prox <IdDestino>.\n"));
+				}
 			}
 			else if (_tcscmp(token, L"quit") == 0) {
 				// todo
 				_tprintf(TEXT("Sair de instância de avião.\n"));
+				_tprintf(TEXT("Aviao terminou.\n"));
+				exit(4);
 			}
 			token = wcstok_s(NULL, delim, &nextToken);
 		}
