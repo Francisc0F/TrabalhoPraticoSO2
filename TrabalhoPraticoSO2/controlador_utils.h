@@ -23,6 +23,19 @@ typedef struct {
 	int terminar;
 }ThreadGestaoDeMapa;
 
+typedef struct {
+	HINSTANCE hInst;
+	HINSTANCE hPrevInst;
+	LPSTR lpCmdLine;
+	int * nCmdShow;
+	MapaPartilhado* MapaPartilhado;
+	MapaPartilhado MapaPartilhadoLocal;
+	HANDLE* hMutexAcessoMapa;
+	HANDLE hControloDeNumeroDeAvioes;
+	HANDLE hTimer;
+	int terminar;
+}ThreadUI;
+
 
 
 void menuControlador();

@@ -5,7 +5,7 @@
 
 void menuAviao() {
 	_putws(TEXT("\nprox <destino> - Proximo destino"));
-	//_putws(TEXT("emb - embarcar passageiros"));
+	_putws(TEXT("emb - embarcar passageiros"));
 	_putws(TEXT("init - iniciar viagem"));
 	_putws(TEXT("quit - terminar instancia de aviao"));
 }
@@ -144,7 +144,6 @@ void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info) {
 	ResetEvent(escreve->hEventEnviarMSG); //bloqueia evento
 }
 
-
 void setupAviao(Aviao* aviao, ThreadsControlerAviao* control) {
 	while (1) {
 		_tprintf(TEXT("Indique cap maxima, numero posicoes por segundo -> <NcapMaxima> <NposicoesSegundo>\n"));
@@ -264,7 +263,6 @@ int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso) 
 		return -1;
 	}
 }
-
 
 void reCalcularRota(MapaPartilhado* partilhado, int currX, int currY, int * nextX, int* nextY) {
 	int quatroVizinhos[4];
