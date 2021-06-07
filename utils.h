@@ -20,6 +20,9 @@
 #define MUTEX_PRODUTOR_MSG_TO_CONTROLER "MUTEX_PRODUTOR_MSG_TO_CONTROLER"
 #define MUTEX_CONSUMIDOR_MSG_TO_CONTROLER "MUTEX_CONSUMIDOR_MSG_TO_CONTROLER"
 
+#define BITMAPAVIAO "aviao.bmp"
+#define BITMAPAERO "aeroporto.bmp"
+
 
 
 #define TAM_BUFFER_CIRCULAR 100
@@ -50,7 +53,8 @@ struct c {
 	int proxDestinoY;
 	int x;
 	int y;
-
+	int xBM;
+	int yBM;
 	int statusViagem;//  -1 = nao esta em viagem, != -1 esta em viagem
 };
 
@@ -60,6 +64,8 @@ struct x {
 	int id;
 	int x;
 	int y;
+	int xBM;
+	int yBM;
 	Aviao listaAvioes[MAXAVIOESAEROPORTO];
 };
 

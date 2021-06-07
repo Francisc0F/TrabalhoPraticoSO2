@@ -37,6 +37,14 @@ typedef struct {
 }ThreadUI;
 
 
+typedef struct {
+	MapaPartilhado* MapaPartilhado;
+	HANDLE hMutex;
+	Aeroporto * aeroportos;
+	int terminar;
+}ThreadAtualizaUI;
+
+
 
 void menuControlador();
 
