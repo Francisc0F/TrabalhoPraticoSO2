@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "../utils.h"
 #include "controlador_utils.h"
+#include "resource.h"
 #define MAX 1000
 #define MAP 1000
 #define MAXAVIOES 100
@@ -35,8 +36,8 @@ BOOL GerarConsola();
 BOOL GerarWindow(WNDCLASSEX* wcApp);
 BOOL GerarJanelaUI(HWND* hWnd, WNDCLASSEX* wcApp);
 BOOL carregaBitmaps(HWND* hWnd);
-
 LRESULT CALLBACK TrataEventos(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK TrataEventosAdministrador(HWND, UINT, WPARAM, LPARAM);
 #pragma endregion
 
 
@@ -177,7 +178,6 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 }
 #pragma endregion
 
-
 DWORD WINAPI ThreadGestorDeMapa(LPVOID param) {
 	ThreadGestaoDeMapa* threadControl = (ThreadGestaoDeMapa*)param;
 
@@ -221,7 +221,6 @@ DWORD WINAPI ThreadGestorDeMapa(LPVOID param) {
 	return 0;
 }
 
-
 DWORD WINAPI atualizaUI(LPVOID param) {
 	ThreadAtualizaUI* dados = (ThreadAtualizaUI*)param;
 	int dir = 1; // 1 para a direita, -1 para a esquerda
@@ -234,18 +233,7 @@ DWORD WINAPI atualizaUI(LPVOID param) {
 		// Aguarda que o mutex esteja livre
 		WaitForSingleObject(hMutexPintura, INFINITE);
 
-		if (!cordsAeroportos) {
-			cordsAeroportos = 1;
-			for (int i = 0; i < MAXAEROPORTOS; i++) {
-				Aeroporto* aux = &lista[i];
-				if (_tcscmp(aux->nome, L"") != 0) {
-					aux->xBM = aux->x * 10;
-					aux->yBM = aux->y * 10;
-					//_tprintf(TEXT("aux->yBM %d\n", aux->yBM));
-					//_tprintf(TEXT("aux->xBM %d\n\n", aux->xBM));
-				}
-			}
-		}
+
 
 		for (int i = 0; i < MAXAVIOES; i++) {
 			if (lista[i].id != 0) {
@@ -373,9 +361,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 
 	// setup aeroportos inicias
 	adicionarAeroporto(TEXT("Lisbon"), 2, 2, aeroportos);
-	adicionarAeroporto(TEXT("Madrid"), 10, 10, aeroportos);
-	adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
-	adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
+	//adicionarAeroporto(TEXT("Madrid"), 10, 10, aeroportos);
+	//adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
+	//adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
 
 
 	//interacaoConsolaControlador(aeroportos, mapaPartilhadoAvioes, &hMutexAcessoMapa, &escrever);
@@ -407,41 +395,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		return -3;
 	}
 
-	// ============================================================================
-	// 3. Criar a janela
-	// ============================================================================
-
-
 	carregaBitmaps(&hWnd);
-
-	//HDC hdc; // representa a propria janela
-	//RECT rect;
-
-	//// carregar o bitmap
-	//hBmpAviao = (HBITMAP)LoadImage(NULL, TEXT(BITMAPAVIAO), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-	//GetObject(hBmpAviao, sizeof(bmpAviao), &bmpAviao); // vai buscar info sobre o handle do bitmap
-
-	//hdc = GetDC(hWnd);
-	//// criamos copia do device context e colocar em memoria
-	//bmpAviaoDC = CreateCompatibleDC(hdc);
-	//// aplicamos o bitmap ao device context
-	//SelectObject(bmpAviaoDC, hBmpAviao);
-
-	//ReleaseDC(hWnd, hdc);
-
-	//// EXEMPLO
-	//// 800 px de largura, imagem 40px de largura
-	//// ponto central da janela 400 px(800/2)
-	//// imagem centrada, começar no 380px e acabar no 420 px
-	//// (800/2) - (40/2) = 400 - 20 = 380px
-
-	//// definir as posicoes inicias da imagem
-	//GetClientRect(hWnd, &rect);
-	//xBitmap = (rect.right / 2) - (bmpAviao.bmWidth / 2);
-	//yBitmap = (rect.bottom / 2) - (bmpAviao.bmHeight / 2);
-
-	//// limite direito é a largura da janela - largura da imagem
-	//limDir = rect.right - bmpAviao.bmWidth;
 
 
 	// Cria mutex
@@ -451,45 +405,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	atualiza.MapaPartilhado = mapaPartilhadoAvioes;
 	// Cria a thread de movimentação
 	CreateThread(NULL, 0, atualizaUI, &atualiza, 0, NULL);
+	ShowWindow(hWnd, nCmdShow);
 
+	HANDLE hAccel = LoadAccelerators(NULL, MAKEINTRESOURCE(IDR_ACCELERATOR2));
 
-	// ============================================================================
-	// 4. Mostrar a janela
-	// ============================================================================
-	ShowWindow(hWnd, nCmdShow);	// "hWnd"= handler da janela, devolvido por
-					  // "CreateWindow"; "nCmdShow"= modo de exibição (p.e.
-					  // normal/modal); é passado como parâmetro de WinMain()
-	UpdateWindow(hWnd);		// Refrescar a janela (Windows envia à janela uma
-					  // mensagem para pintar, mostrar dados, (refrescar)…
-	// ============================================================================
-	// 5. Loop de Mensagens
-	// ============================================================================
-	// O Windows envia mensagens às janelas (programas). Estas mensagens ficam numa fila de
-	// espera até que GetMessage(...) possa ler "a mensagem seguinte"
-	// Parâmetros de "getMessage":
-	// 1)"&lpMsg"=Endereço de uma estrutura do tipo MSG ("MSG lpMsg" ja foi declarada no
-	//   início de WinMain()):
-	//			HWND hwnd		handler da janela a que se destina a mensagem
-	//			UINT message		Identificador da mensagem
-	//			WPARAM wParam		Parâmetro, p.e. código da tecla premida
-	//			LPARAM lParam		Parâmetro, p.e. se ALT também estava premida
-	//			DWORD time		Hora a que a mensagem foi enviada pelo Windows
-	//			POINT pt		Localização do mouse (x, y)
-	// 2)handle da window para a qual se pretendem receber mensagens (=NULL se se pretendem
-	//   receber as mensagens para todas as
-	// janelas pertencentes à thread actual)
-	// 3)Código limite inferior das mensagens que se pretendem receber
-	// 4)Código limite superior das mensagens que se pretendem receber
-
-	// NOTA: GetMessage() devolve 0 quando for recebida a mensagem de fecho da janela,
-	// 	  terminando então o loop de recepção de mensagens, e o programa
-
-	while (GetMessage(&lpMsg, NULL, 0, 0)) {
-		TranslateMessage(&lpMsg);	// Pré-processamento da mensagem (p.e. obter código
-					   // ASCII da tecla premida)
-		DispatchMessage(&lpMsg);	// Enviar a mensagem traduzida de volta ao Windows, que
-					   // aguarda até que a possa reenviar à função de
-					   // tratamento da janela, CALLBACK TrataEventos (abaixo)
+	while (GetMessage(&lpMsg, NULL, 0, 0))
+	{
+		if (!TranslateAccelerator(hWnd, hAccel, &lpMsg))
+		{
+			TranslateMessage(&lpMsg);
+			DispatchMessage(&lpMsg);
+		}
 	}
 
 
@@ -526,37 +452,23 @@ BOOL GerarConsola() {
 
 	SetConsoleOutputCP(CP_UTF8);
 	SetConsoleCP(CP_UTF8);
-	
+
 	SetConsoleTitle(L"Controlador Debug");
 
 }
 
 BOOL GerarWindow(WNDCLASSEX* wcApp) {
-
 	wcApp->cbSize = sizeof(WNDCLASSEX);      // Tamanho da estrutura WNDCLASSEX
 	wcApp->hInstance = hInstGlobal;		         // Instância da janela actualmente exibida
-								   // ("hInst" é parâmetro de WinMain e vem
-										 // inicializada daí)
 	wcApp->lpszClassName = L"Controlador";       // Nome da janela (neste caso = nome do programa)
 	wcApp->lpfnWndProc = TrataEventos;       // Endereço da função de processamento da janela
-											// ("TrataEventos" foi declarada no início e
-											// encontra-se mais abaixo)
 	wcApp->style = CS_HREDRAW | CS_VREDRAW;  // Estilo da janela: Fazer o redraw se for
-											// modificada horizontal ou verticalmente
-
-	wcApp->hIcon = LoadIcon(NULL, IDI_APPLICATION);   // "hIcon" = handler do ícon normal
-										   // "NULL" = Icon definido no Windows
-										   // "IDI_AP..." Ícone "aplicação"
-	wcApp->hIconSm = LoadIcon(NULL, IDI_INFORMATION); // "hIconSm" = handler do ícon pequeno
-										   // "NULL" = Icon definido no Windows
-										   // "IDI_INF..." Ícon de informação
-	wcApp->hCursor = LoadCursor(NULL, IDC_ARROW);	// "hCursor" = handler do cursor (rato)
-							  // "NULL" = Forma definida no Windows
-							  // "IDC_ARROW" Aspecto "seta"
-	wcApp->lpszMenuName = NULL;			// Classe do menu que a janela pode ter
-							  // (NULL = não tem menu)
-	wcApp->cbClsExtra = 0;				// Livre, para uso particular
-	wcApp->cbWndExtra = 0;				// Livre, para uso particular
+	wcApp->hIcon = LoadIcon(NULL, MAKEINTRESOURCE(IDI_ICON1));
+	wcApp->hIconSm = LoadIcon(NULL, MAKEINTRESOURCE(IDI_ICON1));
+	wcApp->hCursor = LoadCursor(NULL, IDC_ARROW);
+	wcApp->lpszMenuName = MAKEINTRESOURCE(IDR_MENU1);
+	wcApp->cbClsExtra = 0;
+	wcApp->cbWndExtra = 0;
 	wcApp->hbrBackground = CreateSolidBrush(RGB(125, 125, 125));
 }
 
@@ -585,33 +497,38 @@ BOOL carregaBitmaps(HWND* hWnd) {
 	RECT rect;
 
 	// carregar bitmaps
-	hBmpAviao = (HBITMAP)LoadImage(NULL, TEXT("ola.bmp"), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	hBmpAviao = (HBITMAP)LoadImage(NULL, TEXT(BITMAPAVIAO), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	_Post_equals_last_error_ DWORD error = GetLastError();
 	if (hBmpAviao == NULL) {
 		TCHAR text[100] = { 0 };
-		_stprintf_s(text,  _countof(text), L"LoadImage aviao failed(0x%x)\n", error);
+		_stprintf_s(text, _countof(text), L"LoadImage aviao failed(0x%x)\n", error);
 		MessageBox(NULL, text, NULL, MB_ICONEXCLAMATION);
+		return 0;
 	}
-	GetObject(hBmpAviao, sizeof(bmpAviao), &bmpAviao); 
+	GetObject(hBmpAviao, sizeof(bmpAviao), &bmpAviao);
 
 
-	hBmpAero = (HBITMAP)LoadImage(NULL, TEXT("ola.bmp"), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	hBmpAero = (HBITMAP)LoadImage(NULL, TEXT(BITMAPAERO), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	error = GetLastError();
 	if (hBmpAero == NULL) {
 		TCHAR text[100] = { 0 };
 		_stprintf_s(text, _countof(text), L"LoadImage aeroporto failed (0x%x)\n", error);
 		MessageBox(NULL, text, NULL, MB_ICONEXCLAMATION);
+		return 0;
 	}
+
 	GetObject(hBmpAero, sizeof(bmpAero), &bmpAero);
 
 	hdc = GetDC(*hWnd);
-	bmpAviaoDC = CreateCompatibleDC(hdc);
+	bmpAviaoDC = CreateCompatibleDC(hdc)
+		;
 	SelectObject(bmpAviaoDC, hBmpAviao);
 
 	bmpAeroDC = CreateCompatibleDC(hdc);
 	SelectObject(bmpAeroDC, hBmpAero);
 
 	ReleaseDC(*hWnd, hdc);
+	return 1;
 }
 
 LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
@@ -623,6 +540,22 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 
 	switch (messg)
 	{
+		//case WM_CREATE:
+		//	
+		//	break;
+
+	case WM_COMMAND:
+
+		switch (LOWORD(wParam))
+		{
+		case ID_ADMIN_GENERAL:
+			DialogBox(NULL, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, TrataEventosAdministrador);
+			break;
+
+		}
+		break;
+
+
 	case WM_PAINT:
 		// Inicio da pintura da janela, que substitui o GetDC
 		hdc = BeginPaint(hWnd, &ps);
@@ -654,29 +587,20 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 				BitBlt(memDC, aux->xBM, aux->yBM, bmpAviao.bmWidth, bmpAviao.bmHeight, bmpAviaoDC, 0, 0, SRCCOPY);
 			}
 		}
-		//BitBlt(memDC, xBitmap, yBitmap, bmp.bmWidth, bmp.bmHeight, bmpDC, 0, 0, SRCCOPY);
+
 		ReleaseMutex(hMutexPintura);
 
 		// bitblit da copia que esta em memoria para a janela principal - é a unica operação feita na janela principal
 		BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
 
-
 		// Encerra a pintura, que substitui o ReleaseDC
 		EndPaint(hWnd, &ps);
 		break;
 
-	case WM_ERASEBKGND:
-		return TRUE;
-
 		// redimensiona e calcula novamente o centro
-	case WM_SIZE:
-		//WaitForSingleObject(hMutexPintura, INFINITE);
-		//xBitmap = (LOWORD(lParam) / 2) - (bmp.bmWidth / 2);
-		//yBitmap = (HIWORD(lParam) / 2) - (bmp.bmHeight / 2);
-		//limDir = LOWORD(lParam) - bmp.bmWidth;
-		//memDC = NULL; // metemos novamente a NULL para que caso haja um resize na janela no WM_PAINT a janela em memoria é sempre atualizada com o tamanho novo
-		//ReleaseMutex(hMutexPintura);
-		break;
+	//case WM_SIZE:
+	//
+	//	break;
 
 	case WM_CLOSE:
 		// handle , texto da janela, titulo da janela, configurações da MessageBox(botoes e icons)
@@ -694,4 +618,157 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	default:
 		return(DefWindowProc(hWnd, messg, wParam, lParam));
 	}
+}
+
+LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam)
+{
+	TCHAR nomeAero[100];
+	TCHAR CordX[100];
+	TCHAR CordY[100];
+
+	switch (messg)
+	{
+
+	case WM_INITDIALOG:
+	{	
+		// Add items to list. 
+		HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
+		for (int i = 0; i < MAXAEROPORTOS; i++)
+		{
+			Aeroporto* aux = &aeroGlobal[i];
+			if (aux->id > 0) {
+				int pos = (int)SendMessage(hwndList, LB_ADDSTRING, 0,
+					(LPARAM)aux->nome);
+				SendMessage(hwndList, LB_SETITEMDATA, pos, (LPARAM)i);
+			}
+		}
+		// Set input focus to the list box.
+		SetFocus(hwndList);
+		break;
+	}
+
+	case WM_COMMAND:
+
+		switch (LOWORD(wParam))
+		{
+		case IDOK:
+		{
+			// GetDlgItemText() vai à dialogbox e vai buscar o input do user
+			//
+			//MessageBox(hWnd, username, TEXT("IDOK"), MB_OK | MB_ICONINFORMATION);
+		}
+		case IDCANCEL: {
+			EndDialog(hWnd, 0);
+			return TRUE;
+		}
+		case IDC_BUTTON1: {
+				GetDlgItemText(hWnd, IDC_EDIT1, nomeAero, 100);
+				GetDlgItemText(hWnd, IDC_EDIT2, CordX, 100);
+				GetDlgItemText(hWnd, IDC_EDIT3, CordY, 100);
+				if (tokenValid(nomeAero) && tokenValid(CordX) && tokenValid(CordY)) {
+					if (verificaAeroExiste(nomeAero, aeroGlobal)) {
+						MessageBox(hWnd, TEXT("Ja Existe"), TEXT("OK"), MB_ICONERROR);
+						break;
+					}
+
+					int x = _tstoi(CordX);
+					int y = _tstoi(CordY);
+					if (verificaAeroCords(x, y, aeroGlobal)) {
+						int index = adicionarAeroporto(nomeAero, x, y, aeroGlobal);
+						HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
+						int pos = (int)SendMessage(hwndList, LB_ADDSTRING, 0,
+							(LPARAM)nomeAero);
+						SendMessage(hwndList, LB_SETITEMDATA, pos, index);
+					}
+					else {
+						MessageBox(hWnd, TEXT("Aeroporto muito proximo de outro. tente mais longe"), TEXT("OK"), MB_ICONERROR);
+						break;
+					}
+					MessageBox(hWnd, TEXT("Aeroporto up and running!!"), TEXT("OK"), MB_OK);
+					break;
+				}
+
+				MessageBox(hWnd, TEXT("Erro dados Invalidos"), TEXT("OK"), MB_ICONERROR);
+			break;
+		}
+		//case IDC_LISTBOX_EXAMPLE:
+		//{
+		//	switch (HIWORD(wParam))
+		//	{
+		//	case LBN_SELCHANGE:
+		//	{
+		//		HWND hwndList = GetDlgItem(hDlg, IDC_LISTBOX_EXAMPLE);
+
+		//		// Get selected index.
+		//		int lbItem = (int)SendMessage(hwndList, LB_GETCURSEL, 0, 0);
+
+		//		// Get item data.
+		//		int i = (int)SendMessage(hwndList, LB_GETITEMDATA, lbItem, 0);
+
+		//		// Do something with the data from Roster[i]
+		//		TCHAR buff[MAX_PATH];
+		//		StringCbPrintf(buff, ARRAYSIZE(buff),
+		//			TEXT("Position: %s\nGames played: %d\nGoals: %d"),
+		//			Roster[i].achPosition, Roster[i].nGamesPlayed,
+		//			Roster[i].nGoalsScored);
+
+		//		SetDlgItemText(hDlg, IDC_STATISTICS, buff);
+		//		return TRUE;
+		//	}
+		//	}
+		//}
+		return TRUE;
+		}
+		// o LOWORD(wParam) traz o ID onde foi carregado 
+		// se carregou no OK
+		if (LOWORD(wParam) == IDOK)
+		{
+			// GetDlgItemText() vai à dialogbox e vai buscar o input do user
+			//
+			//MessageBox(hWnd, username, TEXT("IDOK"), MB_OK | MB_ICONINFORMATION);
+		}
+		else if (LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hWnd, 0);
+			return TRUE;
+		}
+		else if (LOWORD(wParam) == IDC_BUTTON1) {
+			GetDlgItemText(hWnd, IDC_EDIT1, nomeAero, 100);
+			GetDlgItemText(hWnd, IDC_EDIT2, CordX, 100);
+			GetDlgItemText(hWnd, IDC_EDIT3, CordY, 100);
+			if (tokenValid(nomeAero) && tokenValid(CordX) && tokenValid(CordY)) {
+				if (verificaAeroExiste(nomeAero, aeroGlobal)) {
+					MessageBox(hWnd, TEXT("Ja Existe"), TEXT("OK"), MB_ICONERROR);
+					break;
+				}
+
+				int x = _tstoi(CordX);
+				int y = _tstoi(CordY);
+				if (verificaAeroCords(x, y, aeroGlobal)) {
+					int index = adicionarAeroporto(nomeAero, x, y, aeroGlobal);
+					HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
+					int pos = (int)SendMessage(hwndList, LB_ADDSTRING, 0,
+						(LPARAM)nomeAero);
+					SendMessage(hwndList, LB_SETITEMDATA, pos, index);
+				}
+				else {
+					MessageBox(hWnd, TEXT("Aeroporto muito proximo de outro. tente mais longe"), TEXT("OK"), MB_ICONERROR);
+					break;
+				}
+				MessageBox(hWnd, TEXT("Aeroporto up and running!!"), TEXT("OK"), MB_OK);
+				break;
+			}
+
+			MessageBox(hWnd, TEXT("Erro dados Invalidos"), TEXT("OK"), MB_ICONERROR);
+
+		}
+		break;
+
+	case WM_CLOSE:
+
+		EndDialog(hWnd, 0);
+		return TRUE;
+	}
+
+	return FALSE;
 }

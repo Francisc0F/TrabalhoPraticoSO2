@@ -8,22 +8,53 @@
 void menuControlador() {
 	_putws(TEXT("\naddAero <nome> <cordX> <cordY> - Adicionar aeroporto"));
 	_putws(TEXT("lista - lista toda a informação do aeroporto"));
-//	_putws(TEXT("suspender ou ativar - aceitação de novos aviões por parte dos utilizadores"));
+	_putws(TEXT("suspender ou ativar - aceitação de novos aviões por parte dos utilizadores"));
 	_putws(TEXT("end - Encerrar sistema, notifica todos os processos"));
 }
-
-
-void adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]) {
-	pAeroporto aux = NULL;
+BOOL verificaAeroCords(int x, int y, Aeroporto lista[]) {
+	int raio = 10;
+	int limInfY = (y - raio);
+	int limSupY = (y + raio);
+	int limInfX = (x - raio);
+	int limSupX = (x + raio);
 	for (int i = 0; i < MAXAEROPORTOS; i++) {
-		if (_tcscmp(lista[i].nome, L"") == 0) {
-			_tcscpy_s(lista[i].nome, _countof(lista[i].nome), nome);
-			lista[i].id = i + 1;
-			lista[i].x = x;
-			lista[i].y = y;
+		pAeroporto aux = &lista[i];
+		if (aux->id > 0) {
+			if (aux->y >= limInfY && aux->y <= limSupY &&
+				aux->x >= limInfX && aux->x <= limSupX) {
+				return FALSE;
+			}
+		}
+	}
+	return TRUE;
+}
+
+BOOL verificaAeroExiste(TCHAR* nome,Aeroporto lista[]) {
+	for (int i = 0; i < MAXAEROPORTOS; i++) {
+		pAeroporto aux = &lista[i];
+		if (_tcscmp(aux->nome, nome) == 0) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+int adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]) {
+	pAeroporto aux = NULL;
+	int i;
+	for (i = 0; i < MAXAEROPORTOS; i++) {
+		aux = &lista[i];
+		if (_tcscmp(aux->nome, L"") == 0) {
+			_tcscpy_s(aux->nome, _countof(aux->nome), nome);
+			aux->id = i + 1;
+			aux->x = x;
+			aux->y = y;
+			aux->xBM = aux->x * MAPFACTOR;
+			aux->yBM = aux->y * MAPFACTOR;
 			break;
 		}
 	}
+	return i;
 }
 
 

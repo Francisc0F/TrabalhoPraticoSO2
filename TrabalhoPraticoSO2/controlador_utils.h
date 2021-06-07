@@ -2,6 +2,7 @@
 #include <tchar.h>
 #include "../utils.h"
 #define TAM 200
+#define MAPFACTOR 10
 
 
 typedef struct {
@@ -48,7 +49,8 @@ typedef struct {
 
 void menuControlador();
 
-
+BOOL verificaAeroExiste(TCHAR* nome, Aeroporto lista[]);
+BOOL verificaAeroCords(int x, int y, Aeroporto lista[]);
 void adicionarAviao(Aviao* a, Aviao lista[]);
 
 void removerEm(int index, Aviao lista[]);
@@ -58,7 +60,7 @@ void listaAvioes(Aviao lista[], TCHAR* out);
 
 int getAeroporto(int id, Aeroporto lista[]);
 
-void adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]);
+int adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]);
 void listaAeroportos(Aeroporto lista[], TCHAR* out);
 
 int ThreadEnvioDeMsgParaAvioes(ControllerToPlane* escrever, HANDLE* hFileMap, HANDLE* hEscrita);
