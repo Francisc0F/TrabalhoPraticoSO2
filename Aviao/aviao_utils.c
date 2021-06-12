@@ -72,7 +72,6 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 	escreve->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER_CIRCULAR, TAM_BUFFER_CIRCULAR, SEMAPHORE_ESCRITA_MSG_TO_CONTROLER);
 
 	escreve->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER_CIRCULAR, SEMAPHORE_LEITURA_MSG_TO_CONTROLER);
-
 	escreve->hMutex = CreateMutex(NULL, FALSE, MUTEX_PRODUTOR_MSG_TO_CONTROLER);
 
 	if (escreve->hSemEscrita == NULL || escreve->hSemLeitura == NULL || escreve->hMutex == NULL) {
@@ -328,9 +327,6 @@ int viajar(ThreadGerirViagens* dados) {
 				//int move(int cur_x, int cur_y, int final_dest_x, int final_dest_y, int * next_x, int* next_y)
 				aviaoLocal->statusViagem = (ProcAdd)(currX, currY, aviaoLocal->proxDestinoX, aviaoLocal->proxDestinoY, &nextX, &nextY);
 				// status 1 mov correta, 2 erro, 0 chegou 
-				// 
-				//_tprintf(TEXT("\n (x: %d, y: %d) status %d"), nextX, nextY, aviaoLocal->statusViagem);
-
 				WaitForSingleObject(dados->hMutexAcessoAMapaPartilhado, INFINITE);
 				//CopyMemory(&local, partilhado, sizeof(MapaPartilhado)); TODO avaliar acesso mais performante com um CopyMemory
 

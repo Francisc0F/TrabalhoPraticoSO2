@@ -1,7 +1,9 @@
 #pragma once
 #define MAXAVIOESAEROPORTO 100
 #define MAXAEROPORTOS 100
+#define MAXPASSAGEIROS 100
 #define MAXAVIOES 100
+
 #define SEMAPHORE_NUM_AVIOES "SEMAPHORE_NUM_AVIOES"
 #define	READMAP "READMAP"
 #define MAPA_PARTILHADO "MAPA_PARTILHADO"
@@ -24,11 +26,11 @@
 #define BITMAPAERO "aeroporto.bmp"
 
 
-
 #define TAM_BUFFER_CIRCULAR 100
 
 
-
+#define PIPEPASSAG TEXT("\\\\.\\pipe\\passag")
+#define BUFSIZE 512
 
 typedef struct t AviaoMsg, * pAviaoMsg;
 struct t {
@@ -68,6 +70,22 @@ struct x {
 	int yBM;
 	Aviao listaAvioes[MAXAVIOESAEROPORTO];
 };
+
+typedef struct e Passag, * pPassag;
+struct e {
+	int pid;
+	TCHAR origem[100];
+	TCHAR destino[100];
+	TCHAR nome[100];
+	int tempEspera;
+};
+
+typedef struct y MensagemPipe, * pMensagemPipe;
+struct y {
+	Passag autor;
+	TCHAR mensagem[100];
+};
+
 
 
 typedef struct {

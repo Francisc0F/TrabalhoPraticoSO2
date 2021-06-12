@@ -73,7 +73,6 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 			dados->bufferPartilhado->posE = 0;
 		ReleaseMutex(dados->hMutex);
 
-		//libertar posicao de leitura
 		ReleaseSemaphore(dados->hSemLeitura, 1, NULL);
 		Sleep(100);
 	}
@@ -119,6 +118,9 @@ DWORD WINAPI EstouAquiPing(LPVOID param) {
 	return 0;
 }
 #pragma endregion declaracao threads para fluxo de mensagens  aviao -> controlador , controlador -> aviao
+
+
+
 
 int _tmain(int argc, LPTSTR argv[]) {
 

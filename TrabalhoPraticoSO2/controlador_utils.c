@@ -1,5 +1,6 @@
 #include <tchar.h>
 #include <windows.h>
+#include <strsafe.h>
 #include "../utils.h"
 #include "controlador_utils.h"
 
@@ -11,6 +12,7 @@ void menuControlador() {
 	_putws(TEXT("suspender ou ativar - aceitação de novos aviões por parte dos utilizadores"));
 	_putws(TEXT("end - Encerrar sistema, notifica todos os processos"));
 }
+
 BOOL verificaAeroCords(int x, int y, Aeroporto lista[]) {
 	int raio = 10;
 	int limInfY = (y - raio);
@@ -29,7 +31,7 @@ BOOL verificaAeroCords(int x, int y, Aeroporto lista[]) {
 	return TRUE;
 }
 
-BOOL verificaAeroExiste(TCHAR* nome,Aeroporto lista[]) {
+BOOL verificaAeroExiste(TCHAR* nome, Aeroporto lista[]) {
 	for (int i = 0; i < MAXAEROPORTOS; i++) {
 		pAeroporto aux = &lista[i];
 		if (_tcscmp(aux->nome, nome) == 0) {
@@ -57,24 +59,34 @@ int adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]) {
 	return i;
 }
 
-
-
 void printAeroporto(pAeroporto aero, TCHAR* out) {
-	TCHAR * text = L"\nid: [%d]\nNome: [%s]\nPosicao: (%d, %d)\n";
+	TCHAR* text = L"\nid: [%d]\nNome: [%s]\nPosicao: (%d, %d)\n";
 	TCHAR aux[100];
 	if (out != NULL) {
-		_stprintf_s(aux, 100, text,aero->id, aero->nome, aero->x, aero->y);
+		_stprintf_s(aux, 100, text, aero->id, aero->nome, aero->x, aero->y);
 		_tcscat_s(out, 300, aux);
 	}
 	else {
-		_tprintf(text,aero->id, aero->nome, aero->x, aero->y);
+		_tprintf(text, aero->id, aero->nome, aero->x, aero->y);
 	}
 }
 
-void adicionarAviao(Aviao *a, Aviao lista[]) {
+void printPassag(pPassag p, TCHAR* out) {
+	TCHAR* text = PASSAGFORMAT;
+	TCHAR aux[100];
+	if (out != NULL) {
+		_stprintf_s(aux, 100, text, p->pid, p->nome, p->origem, p->destino, p->tempEspera);
+		_tcscat_s(out, 300, aux);
+	}
+	else {
+		_tprintf(text, p->pid, p->nome, p->origem, p->destino, p->tempEspera);
+	}
+}
+
+void adicionarAviao(Aviao* a, Aviao lista[]) {
 	// int id, int n_passag, int max_passag, int posPorSegundo, int idAero,
 	for (int i = 0; i < MAXAVIOES; i++) {
-		if(lista[i].id == 0){
+		if (lista[i].id == 0) {
 			lista[i].id = a->id;
 			lista[i].idAeroporto = a->idAeroporto;
 			lista[i].n_passag = a->n_passag;
@@ -89,11 +101,26 @@ void adicionarAviao(Aviao *a, Aviao lista[]) {
 			lista[i].proxDestinoX = -1;
 			lista[i].proxDestinoY = -1;
 			lista[i].statusViagem = -1;
-	
+
 			break;
 		}
 	}
 }
+
+void adicionarPassag(pPassag a, Passag lista[]) {
+	pPassag aux = NULL;
+	for (int i = 0; i < MAXAVIOES; i++) {
+		aux = &lista[i];
+		if (aux->pid == 0) {
+			aux->pid = a->pid;
+			aux->tempEspera = a->tempEspera;
+			_tcscpy_s(aux->destino, _countof(aux->destino), a->destino);
+			_tcscpy_s(aux->origem, _countof(aux->origem), a->origem);
+			break;
+		}
+	}
+}
+
 
 int getAeroporto(int id, Aeroporto lista[]) {
 	for (int i = 0; i < MAXAEROPORTOS; i++) {
@@ -104,9 +131,8 @@ int getAeroporto(int id, Aeroporto lista[]) {
 	return -1;
 }
 
-
 void removerEm(int index, Aviao lista[]) {
-	if (index + 1 > MAXAVIOES ) {
+	if (index + 1 > MAXAVIOES) {
 		_tprintf(L"Exedeu Boundries");
 	}
 	else {
@@ -131,14 +157,13 @@ void listaAvioes(Aviao lista[], TCHAR* out) {
 	else {
 		_tprintf(titulo);
 	}
-	
+
 	for (int i = 0; i < MAXAVIOES; i++) {
-		if (lista[i].id != 0 ) {
+		if (lista[i].id != 0) {
 			printAviao(&lista[i], out);
 		}
 	}
 }
-
 
 void listaAeroportos(Aeroporto lista[], TCHAR* out) {
 	TCHAR* titulo = L"[Aeroportos]\n";
@@ -151,7 +176,23 @@ void listaAeroportos(Aeroporto lista[], TCHAR* out) {
 
 	for (int i = 0; i < MAXAEROPORTOS; i++) {
 		if (_tcscmp(lista[i].nome, L"") != 0) {
-				printAeroporto(&lista[i], out);
+			printAeroporto(&lista[i], out);
+		}
+	}
+}
+
+void listaPassageiros(Passag lista[], TCHAR* out) {
+	TCHAR* titulo = L"[Passageiros]\n";
+	if (out != NULL) {
+		_tcscat_s(out, 100, titulo);
+	}
+	else {
+		_tprintf(titulo);
+	}
+
+	for (int i = 0; i < MAXPASSAGEIROS; i++) {
+		if (lista[i].pid > 0) {
+			printPassag(&lista[i], out);
 		}
 	}
 }
@@ -285,8 +326,8 @@ int checkRegEditKeys(TCHAR* key_dir, HKEY handle, DWORD handleRes, TCHAR* key_na
 	return 0;
 }
 
-int setupMapaPartilhado(HANDLE * hMapaDePosicoesPartilhada, HANDLE * mutexAcesso) {
-	 *hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
+int setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso) {
+	*hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
 	if (*hMapaDePosicoesPartilhada == NULL) {
 
 		*hMapaDePosicoesPartilhada = CreateFileMapping(
@@ -337,7 +378,7 @@ int preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 			NULL,
 			PAGE_READWRITE,
 			0,
-			sizeof(BufferCircular), 
+			sizeof(BufferCircular),
 			FILE_MAP_MSG_TO_CONTROLER);
 
 		if (*hLerFileMap == NULL) {
@@ -381,7 +422,7 @@ void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info) {
 	ResetEvent(escreve->hEventOrdemDeEscrever); //bloqueia evento
 }
 
-void interacaoConsolaControlador(Aeroporto * aeroportos, MapaPartilhado* mapaPartilhadoAvioes, HANDLE * mutexAccessoMapa, ControllerToPlane * escrita) {
+void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPartilhadoAvioes, HANDLE* mutexAccessoMapa, ControllerToPlane* escrita) {
 	// menu  
 	while (1) {
 		menuControlador();
@@ -458,4 +499,69 @@ void interacaoConsolaControlador(Aeroporto * aeroportos, MapaPartilhado* mapaPar
 		}
 	}
 
+}
+
+VOID DisconnectAndReconnect(LPPIPEINST Pipe)
+{
+	// Disconnect the pipe instance. 
+
+	if (!DisconnectNamedPipe(Pipe->hPipeInst))
+	{
+		_tprintf(TEXT("DisconnectNamedPipe failed with %d\n"), GetLastError());
+	}
+
+	// Call a subroutine to connect to the new client. 
+
+	Pipe->fPendingIO = ConnectToNewClient(
+		Pipe->hPipeInst,
+		&Pipe->oOverlap);
+
+	Pipe->dwState = Pipe->fPendingIO ?
+		CONNECTING_STATE : // still connecting 
+		READING_STATE;     // ready to read 
+}
+
+BOOL ConnectToNewClient(HANDLE hPipe, LPOVERLAPPED lpo)
+{
+	BOOL fConnected, fPendingIO = FALSE;
+
+	// Start an overlapped connection for this pipe instance. 
+	fConnected = ConnectNamedPipe(hPipe, lpo);
+
+	// Overlapped ConnectNamedPipe should return zero. 
+	if (fConnected)
+	{
+		printf("ConnectNamedPipe failed with %d.\n", GetLastError());
+		return 0;
+	}
+
+	switch (GetLastError())
+	{
+		// The overlapped connection in progress. 
+	case ERROR_IO_PENDING:
+		fPendingIO = TRUE;
+		break;
+
+		// Client is already connected, so signal an event. 
+
+	case ERROR_PIPE_CONNECTED:
+		if (SetEvent(lpo->hEvent))
+			break;
+
+		// If an error occurs during the connect operation... 
+	default:
+	{
+		printf("ConnectNamedPipe failed with %d.\n", GetLastError());
+		return 0;
+	}
+	}
+
+	return fPendingIO;
+}
+
+VOID GetAnswerToRequest(LPPIPEINST pipe)
+{
+	_tprintf(TEXT("[%d] %s\n"), pipe->hPipeInst, pipe->chRequest.mensagem);
+	StringCchCopy(pipe->chReply.mensagem, 100, TEXT("Default answer from server"));
+	pipe->cbToWrite = (lstrlen(pipe->chReply.mensagem) + 1) * sizeof(TCHAR);
 }

@@ -49,6 +49,7 @@ void updateAviao(Aviao* a, int idAero, int statusViagem, int x, int y) {
 	updateAeroportoAviao(a, idAero);
 	atualizaPosicaoAviao(a, x, y);
 }
+
 void apagaDoSistema(Aviao* a) {
 	updateAviao(a, 0, -1, -1, -1);
 	a->id == 0;

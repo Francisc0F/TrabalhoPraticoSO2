@@ -3,6 +3,7 @@
 #include <tchar.h>
 #include <fcntl.h>
 #include <io.h>
+#include <strsafe.h>
 #include <stdio.h>
 #include "../utils.h"
 #include "controlador_utils.h"
@@ -11,6 +12,7 @@
 #define MAP 1000
 #define MAXAVIOES 100
 
+#pragma region declaracaoGlobais para UI
 HBITMAP hBmpAviao;
 HBITMAP hBmpAero;
 HDC bmpAviaoDC; // hdc do bitmap
@@ -30,17 +32,18 @@ HANDLE hConsola;
 
 Aeroporto* aeroGlobal = NULL;
 Aviao* aviaoGlobal = NULL;
+Passag* passagGlobal = NULL;
 
-#pragma regio declaracaoFuncoes 
+#pragma endregion 
+
+#pragma region declaracaoFuncoes 
 BOOL GerarConsola();
 BOOL GerarWindow(WNDCLASSEX* wcApp);
 BOOL GerarJanelaUI(HWND* hWnd, WNDCLASSEX* wcApp);
 BOOL carregaBitmaps(HWND* hWnd);
 LRESULT CALLBACK TrataEventos(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK TrataEventosAdministrador(HWND, UINT, WPARAM, LPARAM);
-#pragma endregion
-
-
+#pragma endregion 
 
 #pragma region threads declaration
 
@@ -77,9 +80,7 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 	int soma = 0;
 	TCHAR* garbage = NULL;
 	while (!dados->terminar) {
-
 		WaitForSingleObject(dados->hSemLeitura, INFINITE);
-
 		WaitForSingleObject(dados->hMutex, INFINITE);
 
 		CopyMemory(&celLocal, &bufferPartilhado->buffer[bufferPartilhado->posL], sizeof(MSGcel));
@@ -256,6 +257,230 @@ DWORD WINAPI atualizaUI(LPVOID param) {
 }
 
 #pragma endregion 
+DWORD MensagensPipes(ThreadCriadorPipes* dados) {
+	HANDLE* hEvents = dados->hEvents;
+	LPPIPEINST Pipe = dados->hPipes;
+
+	DWORD i, dwWait, cbRet, dwErr;
+	BOOL fSuccess;
+	while (1)
+	{
+		// Wait for the event object to be signaled, indicating 
+		// completion of an overlapped read, write, or 
+		// connect operation. 
+
+		dwWait = WaitForMultipleObjects(
+			INSTANCES,    // number of event objects 
+			hEvents,      // array of event objects 
+			FALSE,        // does not wait for all 
+			INFINITE);    // waits indefinitely 
+
+	  // dwWait shows which pipe completed the operation. 
+
+		i = dwWait - WAIT_OBJECT_0;  // determines which pipe 
+		if (i < 0 || i >(INSTANCES - 1))
+		{
+			_tprintf(L"Index out of range.\n");
+			return 0;
+		}
+
+		// Get the result if the operation was pending. 
+		if (Pipe[i].fPendingIO)
+		{
+			fSuccess = GetOverlappedResult(
+				Pipe[i].hPipeInst, // handle to pipe 
+				&Pipe[i].oOverlap, // OVERLAPPED structure 
+				&cbRet,            // bytes transferred 
+				FALSE);            // do not wait 
+
+			switch (Pipe[i].dwState)
+			{
+				// Pending connect operation 
+			case CONNECTING_STATE:
+				if (!fSuccess)
+				{
+					_tprintf(L"Error %d.\n", GetLastError());
+					return 0;
+				}
+				Pipe[i].dwState = READING_STATE;
+				break;
+
+				// Pending read operation 
+			case READING_STATE:
+				if (!fSuccess || cbRet == 0)
+				{
+					DisconnectAndReconnect(&Pipe[i]);
+					continue;
+				}
+				Pipe[i].cbRead = cbRet;
+				Pipe[i].dwState = WRITING_STATE;
+				break;
+
+				// Pending write operation 
+			case WRITING_STATE:
+				if (!fSuccess || cbRet != Pipe[i].cbToWrite)
+				{
+					DisconnectAndReconnect(&Pipe[i]);
+					continue;
+				}
+				Pipe[i].dwState = READING_STATE;
+				break;
+
+			default:
+			{
+				_tprintf(L"Invalid State\n");
+				return 0;
+			}
+			}
+		}
+
+		// The pipe state determines which operation to do next. 
+
+		switch (Pipe[i].dwState)
+		{
+			// READING_STATE: 
+			// The pipe instance is connected to the client 
+			// and is ready to read a request from the client. 
+
+		case READING_STATE:
+			fSuccess = ReadFile(
+				Pipe[i].hPipeInst,
+				&Pipe[i].chRequest,
+				sizeof(MensagemPipe),
+				&Pipe[i].cbRead,
+				&Pipe[i].oOverlap);
+
+			// The read operation completed successfully. 
+
+			if (fSuccess && Pipe[i].cbRead != 0)
+			{
+				Pipe[i].fPendingIO = FALSE;
+				Pipe[i].dwState = WRITING_STATE;
+				continue;
+			}
+
+			// The read operation is still pending. 
+
+			dwErr = GetLastError();
+			if (!fSuccess && (dwErr == ERROR_IO_PENDING))
+			{
+				Pipe[i].fPendingIO = TRUE;
+				continue;
+			}
+
+			// An error occurred; disconnect from the client. 
+
+			DisconnectAndReconnect(&Pipe[i]);
+			break;
+
+			// WRITING_STATE: 
+			// The request was successfully read from the client. 
+			// Get the reply data and write it to the client. 
+
+		case WRITING_STATE:
+			GetAnswerToRequest(&Pipe[i]);
+
+			fSuccess = WriteFile(
+				Pipe[i].hPipeInst,
+				&Pipe[i].chReply,
+				Pipe[i].cbToWrite,
+				&cbRet,
+				&Pipe[i].oOverlap);
+
+			// The write operation completed successfully. 
+
+			if (fSuccess && cbRet == Pipe[i].cbToWrite)
+			{
+				Pipe[i].fPendingIO = FALSE;
+				Pipe[i].dwState = READING_STATE;
+				continue;
+			}
+
+			// The write operation is still pending. 
+
+			dwErr = GetLastError();
+			if (!fSuccess && (dwErr == ERROR_IO_PENDING))
+			{
+				Pipe[i].fPendingIO = TRUE;
+				continue;
+			}
+
+			// An error occurred; disconnect from the client. 
+
+			DisconnectAndReconnect(&Pipe[i]);
+			break;
+
+		default:
+		{
+			_tprintf(L"Invalid State\n");
+			return 0;
+		}
+		}
+	}
+
+}
+
+DWORD WINAPI CriadorDePIPES(LPVOID param) {
+	ThreadCriadorPipes* dados = (ThreadCriadorPipes*)param;
+	HANDLE* hEvents = dados->hEvents;
+	LPPIPEINST Pipe = dados->hPipes;
+	for (int i = 0; i < INSTANCES; i++)
+	{
+
+		// Create an event object for this instance. 
+		hEvents[i] = CreateEvent(
+			NULL,    // default security attribute 
+			TRUE,    // manual-reset event 
+			TRUE,    // initial state = signaled 
+			NULL);   // unnamed event object 
+
+		if (hEvents[i] == NULL)
+		{
+			_tprintf(L"CreateEvent failed with %d.\n", GetLastError());
+			return 0;
+		}
+		ZeroMemory(&Pipe[i].oOverlap, sizeof(Pipe[i].oOverlap));
+		Pipe[i].oOverlap.hEvent = hEvents[i];
+
+		Pipe[i].hPipeInst = CreateNamedPipe(
+			PIPEPASSAG,            // pipe name 
+			PIPE_ACCESS_DUPLEX |     // read/write access 
+			FILE_FLAG_OVERLAPPED,    // overlapped mode 
+			PIPE_TYPE_MESSAGE |      // message-type pipe 
+			PIPE_READMODE_MESSAGE |  // message-read mode 
+			PIPE_WAIT,               // blocking mode 
+			PIPE_UNLIMITED_INSTANCES, // max. instances             
+			sizeof(MensagemPipe),   // output buffer size 
+			sizeof(MensagemPipe),   // input buffer size 
+			PIPE_TIMEOUT,            // client time-out 
+			NULL);                   // default security attributes 
+
+		if (Pipe[i].hPipeInst == INVALID_HANDLE_VALUE)
+		{
+			_tprintf("CreateNamedPipe failed with %d.\n", GetLastError());
+			return 0;
+		}
+
+		// Call the subroutine to connect to the new client
+
+		Pipe[i].fPendingIO = ConnectToNewClient(
+			Pipe[i].hPipeInst,
+			&Pipe[i].oOverlap);
+
+		Pipe[i].dwState = Pipe[i].fPendingIO ?
+			CONNECTING_STATE : // still connecting 
+			READING_STATE;     // ready to read 
+
+
+
+	}
+
+
+	MensagensPipes(dados);
+
+}
+
+
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
 
@@ -356,7 +581,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	hThreads[2] = CreateThread(NULL, 0, ThreadGestorDeMapa, &gestor, 0, NULL);
 
 
-
+	PIPEINST Pipe[INSTANCES];
+	HANDLE hEvents[INSTANCES];
+	ThreadCriadorPipes threadCriadorPipes;
+	threadCriadorPipes.hPipes = Pipe;
+	threadCriadorPipes.hEvents = hEvents;
+	hThreads[3] = CreateThread(NULL, 0, CriadorDePIPES, &threadCriadorPipes, 0, NULL);
 
 
 	// setup aeroportos inicias
@@ -398,12 +628,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	carregaBitmaps(&hWnd);
 
 
-	// Cria mutex
 	hMutexPintura = CreateMutex(NULL, FALSE, NULL);
 	ThreadAtualizaUI atualiza;
 	atualiza.aeroportos = aeroportos;
 	atualiza.MapaPartilhado = mapaPartilhadoAvioes;
-	// Cria a thread de movimentação
 	CreateThread(NULL, 0, atualizaUI, &atualiza, 0, NULL);
 	ShowWindow(hWnd, nCmdShow);
 
@@ -435,24 +663,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	return((int)lpMsg.wParam);	// Retorna sempre o parâmetro wParam da estrutura lpMsg
 }
 
-
 BOOL GerarConsola() {
-	HANDLE handle_out = GetStdHandle(STD_OUTPUT_HANDLE);
-	int hCrt = _open_osfhandle((long)handle_out, _O_TEXT);
-	FILE* hf_out = _fdopen(hCrt, "w");
-	setvbuf(hf_out, NULL, _IONBF, 1);
-	*stdout = *hf_out;
+	FILE* fpstdin = stdin, * fpstdout = stdout, * fpstderr = stderr;
 
-	// Create Console Input Handle
-	HANDLE handle_in = GetStdHandle(STD_INPUT_HANDLE);
-	hCrt = _open_osfhandle((long)handle_in, _O_TEXT);
-	FILE* hf_in = _fdopen(hCrt, "r");
-	setvbuf(hf_in, NULL, _IONBF, 1);
-	*stdin = *hf_in;
+	/*SetConsoleOutputCP(CP_UTF8);
+	SetConsoleCP(CP_UTF8);*/
 
-	SetConsoleOutputCP(CP_UTF8);
-	SetConsoleCP(CP_UTF8);
-
+	freopen_s(&fpstdin, "CONIN$", "r", stdin);
+	freopen_s(&fpstdout, "CONOUT$", "w", stdout);
+	freopen_s(&fpstderr, "CONOUT$", "w", stderr);
 	SetConsoleTitle(L"Controlador Debug");
 
 }
@@ -544,18 +763,17 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		//	
 		//	break;
 
-	case WM_COMMAND:
+	case WM_COMMAND: {
 
 		switch (LOWORD(wParam))
 		{
 		case ID_ADMIN_GENERAL:
 			DialogBox(NULL, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, TrataEventosAdministrador);
 			break;
-
 		}
 		break;
 
-
+	}
 	case WM_PAINT:
 		// Inicio da pintura da janela, que substitui o GetDC
 		hdc = BeginPaint(hWnd, &ps);
@@ -574,7 +792,6 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		FillRect(memDC, &rect, CreateSolidBrush(RGB(125, 125, 125)));
 
 		WaitForSingleObject(hMutexPintura, INFINITE);
-		// operacoes de escrita da imagem - BitBlt
 		for (size_t i = 0; i < MAXAEROPORTOS; i++) {
 			Aeroporto* aux = &aeroGlobal[i];
 			if (_tcscmp(aux->nome, L"") != 0) {
@@ -587,7 +804,6 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 				BitBlt(memDC, aux->xBM, aux->yBM, bmpAviao.bmWidth, bmpAviao.bmHeight, bmpAviaoDC, 0, 0, SRCCOPY);
 			}
 		}
-
 		ReleaseMutex(hMutexPintura);
 
 		// bitblit da copia que esta em memoria para a janela principal - é a unica operação feita na janela principal
@@ -597,15 +813,14 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		EndPaint(hWnd, &ps);
 		break;
 
-		// redimensiona e calcula novamente o centro
-	//case WM_SIZE:
-	//
-	//	break;
+		//case WM_SIZE:
+		//
+		//	break;
 
 	case WM_CLOSE:
-		// handle , texto da janela, titulo da janela, configurações da MessageBox(botoes e icons)
+
 		if (MessageBox(hWnd, TEXT("Tem a certeza que quer sair?"), TEXT("Confirmação"), MB_YESNO | MB_ICONQUESTION) == IDYES) {
-			// o utilizador disse que queria sair da aplicação
+
 			DestroyWindow(hWnd);
 		}
 		break;
@@ -630,7 +845,7 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 	{
 
 	case WM_INITDIALOG:
-	{	
+	{
 		// Add items to list. 
 		HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
 		for (int i = 0; i < MAXAEROPORTOS; i++)
@@ -662,65 +877,63 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 			return TRUE;
 		}
 		case IDC_BUTTON1: {
-				GetDlgItemText(hWnd, IDC_EDIT1, nomeAero, 100);
-				GetDlgItemText(hWnd, IDC_EDIT2, CordX, 100);
-				GetDlgItemText(hWnd, IDC_EDIT3, CordY, 100);
-				if (tokenValid(nomeAero) && tokenValid(CordX) && tokenValid(CordY)) {
-					if (verificaAeroExiste(nomeAero, aeroGlobal)) {
-						MessageBox(hWnd, TEXT("Ja Existe"), TEXT("OK"), MB_ICONERROR);
-						break;
-					}
-
-					int x = _tstoi(CordX);
-					int y = _tstoi(CordY);
-					if (verificaAeroCords(x, y, aeroGlobal)) {
-						int index = adicionarAeroporto(nomeAero, x, y, aeroGlobal);
-						HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
-						int pos = (int)SendMessage(hwndList, LB_ADDSTRING, 0,
-							(LPARAM)nomeAero);
-						SendMessage(hwndList, LB_SETITEMDATA, pos, index);
-					}
-					else {
-						MessageBox(hWnd, TEXT("Aeroporto muito proximo de outro. tente mais longe"), TEXT("OK"), MB_ICONERROR);
-						break;
-					}
-					MessageBox(hWnd, TEXT("Aeroporto up and running!!"), TEXT("OK"), MB_OK);
+			GetDlgItemText(hWnd, IDC_EDIT1, nomeAero, 100);
+			GetDlgItemText(hWnd, IDC_EDIT2, CordX, 100);
+			GetDlgItemText(hWnd, IDC_EDIT3, CordY, 100);
+			if (tokenValid(nomeAero) && tokenValid(CordX) && tokenValid(CordY)) {
+				if (verificaAeroExiste(nomeAero, aeroGlobal)) {
+					MessageBox(hWnd, TEXT("Ja Existe"), TEXT("OK"), MB_ICONERROR);
 					break;
 				}
 
-				MessageBox(hWnd, TEXT("Erro dados Invalidos"), TEXT("OK"), MB_ICONERROR);
+				int x = _tstoi(CordX);
+				int y = _tstoi(CordY);
+				if (verificaAeroCords(x, y, aeroGlobal)) {
+					int index = adicionarAeroporto(nomeAero, x, y, aeroGlobal);
+					HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
+					int pos = (int)SendMessage(hwndList, LB_ADDSTRING, 0,
+						(LPARAM)nomeAero);
+					SendMessage(hwndList, LB_SETITEMDATA, pos, index);
+				}
+				else {
+					MessageBox(hWnd, TEXT("Aeroporto muito proximo de outro. tente mais longe"), TEXT("OK"), MB_ICONERROR);
+					break;
+				}
+				MessageBox(hWnd, TEXT("Aeroporto up and running!!"), TEXT("OK"), MB_OK);
+				break;
+			}
+
+			MessageBox(hWnd, TEXT("Erro dados Invalidos"), TEXT("OK"), MB_ICONERROR);
 			break;
 		}
-		//case IDC_LISTBOX_EXAMPLE:
-		//{
-		//	switch (HIWORD(wParam))
-		//	{
-		//	case LBN_SELCHANGE:
-		//	{
-		//		HWND hwndList = GetDlgItem(hDlg, IDC_LISTBOX_EXAMPLE);
+		case IDC_LIST1:
+		{
+			switch (HIWORD(wParam))
+			{
+			case LBN_SELCHANGE:
+			{
+				HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
 
-		//		// Get selected index.
-		//		int lbItem = (int)SendMessage(hwndList, LB_GETCURSEL, 0, 0);
+				int lbItem = (int)SendMessage(hwndList, LB_GETCURSEL, 0, 0);
 
-		//		// Get item data.
-		//		int i = (int)SendMessage(hwndList, LB_GETITEMDATA, lbItem, 0);
+				int i = (int)SendMessage(hwndList, LB_GETITEMDATA, lbItem, 0);
 
-		//		// Do something with the data from Roster[i]
-		//		TCHAR buff[MAX_PATH];
-		//		StringCbPrintf(buff, ARRAYSIZE(buff),
-		//			TEXT("Position: %s\nGames played: %d\nGoals: %d"),
-		//			Roster[i].achPosition, Roster[i].nGamesPlayed,
-		//			Roster[i].nGoalsScored);
+				//	Aeroporto* aux = &aeroGlobal[i];
+				Passag* p = &passagGlobal[0];
+				TCHAR buff[MAX_PATH];
+				//TCHAR* formatStr = TEXT("id: [%d]\nNome: [%s]\nPosicao: (%d, %d)\n");
+				TCHAR* formatStr = PASSAGFORMAT;
 
-		//		SetDlgItemText(hDlg, IDC_STATISTICS, buff);
-		//		return TRUE;
-		//	}
-		//	}
-		//}
+				//StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, aux->id, aux->nome, aux->x, aux->y);
+				StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, p->pid, p->nome, p->origem, p->destino, p->tempEspera);
+
+				SetDlgItemText(hWnd, IDC_STATIC_3, buff);
+				return TRUE;
+			}
+			}
+		}
 		return TRUE;
 		}
-		// o LOWORD(wParam) traz o ID onde foi carregado 
-		// se carregou no OK
 		if (LOWORD(wParam) == IDOK)
 		{
 			// GetDlgItemText() vai à dialogbox e vai buscar o input do user

@@ -5,6 +5,8 @@
 #define MAPFACTOR 10
 
 
+#define PASSAGFORMAT TEXT("\nid: [%d]\nNome: [%s]\nOrigem: %s\nDestino: %s\nTempo espera: %d\n");
+
 typedef struct {
 	MSGThread* leitura;
 	ControllerToPlane* escrita;
@@ -28,7 +30,7 @@ typedef struct {
 	HINSTANCE hInst;
 	HINSTANCE hPrevInst;
 	LPSTR lpCmdLine;
-	int * nCmdShow;
+	int* nCmdShow;
 	MapaPartilhado* MapaPartilhado;
 	MapaPartilhado MapaPartilhadoLocal;
 	HANDLE* hMutexAcessoMapa;
@@ -41,9 +43,36 @@ typedef struct {
 typedef struct {
 	MapaPartilhado* MapaPartilhado;
 	HANDLE hMutex;
-	Aeroporto * aeroportos;
+	Aeroporto* aeroportos;
 	int terminar;
 }ThreadAtualizaUI;
+
+#define CONNECTING_STATE 0 
+#define READING_STATE 1 
+#define WRITING_STATE 2 
+#define INSTANCES 4 
+#define PIPE_TIMEOUT 5000
+
+typedef struct
+{
+	OVERLAPPED oOverlap;
+	HANDLE hPipeInst;
+	MensagemPipe chRequest;
+	DWORD cbRead;
+	MensagemPipe chReply;
+	DWORD cbToWrite;
+	DWORD dwState;
+	BOOL fPendingIO;
+} PIPEINST, * LPPIPEINST;
+
+typedef struct {
+	PIPEINST* hPipes;
+	HANDLE* hEvents;
+	HANDLE hMutex;
+	int terminar;
+}ThreadCriadorPipes;
+
+
 
 
 
@@ -74,5 +103,8 @@ void printAeroporto(pAeroporto aero, TCHAR* out);
 
 int setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso);
 
-void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPartilhadoAvioes, HANDLE * hmutexMapaPartilhado, ControllerToPlane* escrita);
+void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPartilhadoAvioes, HANDLE* hmutexMapaPartilhado, ControllerToPlane* escrita);
 
+VOID DisconnectAndReconnect(LPPIPEINST Pipe);
+VOID GetAnswerToRequest(LPPIPEINST pipe);
+BOOL ConnectToNewClient(HANDLE hPipe, LPOVERLAPPED lpo);
