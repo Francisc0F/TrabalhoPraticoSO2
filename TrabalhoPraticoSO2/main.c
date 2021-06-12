@@ -946,7 +946,11 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 
 				StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, aux->id, aux->nome, aux->x, aux->y);
 				//StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, p->pid, p->nome, p->origem, p->destino, p->tempEspera);
+				TCHAR listaStr[400] = { 0 };
+				listaPassageirosEmAeroporto(passagGlobal, aux->nome, listaStr);
+				listaAvioesEmAero(aviaoGlobal, aux->id, listaStr);
 
+				_tcscat_s(buff, MAX_PATH, listaStr);
 				SetDlgItemText(hWnd, IDC_STATIC_3, buff);
 				return TRUE;
 			}

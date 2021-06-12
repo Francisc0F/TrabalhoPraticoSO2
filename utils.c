@@ -29,12 +29,10 @@ void printAviao(Aviao* aviao, TCHAR* out) {
 	}
 	else {
 		if (aviao->idAeroporto == -1) {
-			_tprintf(txtEmViagem,
-				aviao->id, aviao->segundosVivo, aviao->x, aviao->y, aviao->posPorSegundo);
+			_tprintf(txtEmViagem,aviao->id, aviao->segundosVivo, aviao->x, aviao->y, aviao->posPorSegundo);
 		}
 		else {
-			_tprintf(txt,
-			aviao->id, aviao->segundosVivo, aviao->idAeroporto, aviao->x, aviao->y, aviao->n_passag, aviao->max_passag, aviao->posPorSegundo);
+			_tprintf(txt,aviao->id, aviao->segundosVivo, aviao->idAeroporto, aviao->x, aviao->y, aviao->n_passag, aviao->max_passag, aviao->posPorSegundo);
 		}
 		
 	}

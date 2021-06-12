@@ -5,7 +5,7 @@
 #define MAPFACTOR 10
 
 
-#define PASSAGFORMAT TEXT("\nid: [%d]\nNome: [%s]\nOrigem: %s\nDestino: %s\nTempo espera: %d\n");
+#define PASSAGFORMAT TEXT("\nid: [%d] Nome: [%s] Origem: %s Destino: %s Tempo espera: %d\n");
 
 typedef struct {
 	MSGThread* leitura;
@@ -87,9 +87,12 @@ void removerEm(int index, Aviao lista[]);
 void removerTodos(Aviao lista[]);
 
 void listaAvioes(Aviao lista[], TCHAR* out);
+void listaAvioesEmAero(Aviao lista[], int idAero, TCHAR* out);
+
 
 int getAeroporto(int id, Aeroporto lista[]);
 void listaPassageiros(Passag lista[], TCHAR* out);
+void listaPassageirosEmAeroporto(Passag lista[], TCHAR* aero, TCHAR* out);
 void adicionarPassag(pPassag a, Passag lista[]);
 
 int adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]);

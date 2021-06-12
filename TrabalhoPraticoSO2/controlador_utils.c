@@ -177,6 +177,29 @@ void listaAvioes(Aviao lista[], TCHAR* out) {
 	}
 }
 
+void listaAvioesEmAero(Aviao lista[], int idAero, TCHAR* out) {
+	TCHAR* titulo = L"[Aviões]\n";
+	if (out != NULL) {
+		_tcscat_s(out, 100, titulo);
+	}
+	else {
+		_tprintf(titulo);
+	}
+
+	for (int i = 0; i < MAXAVIOES; i++) {
+		if (lista[i].id < 0) {
+			break;
+		}
+		
+		if ( lista[i].idAeroporto == idAero) {
+			printAviao(&lista[i], out);
+		}
+	}
+}
+
+
+
+
 void listaAeroportos(Aeroporto lista[], TCHAR* out) {
 	TCHAR* titulo = L"[Aeroportos]\n";
 	if (out != NULL) {
@@ -208,6 +231,26 @@ void listaPassageiros(Passag lista[], TCHAR* out) {
 		}
 	}
 }
+
+void listaPassageirosEmAeroporto(Passag lista[], TCHAR* aero,  TCHAR* out) {
+	TCHAR* titulo = TEXT("\n[Passageiros]");
+	if (out != NULL) {
+		_tcscat_s(out, 400, titulo);
+	}
+	else {
+		_tprintf(titulo);
+	}
+
+	for (int i = 0; i < MAXPASSAGEIROS; i++) {
+		if (lista[i].pid == 0) {
+			break;
+		}
+		if (_tcscmp(aero, lista[i].origem) == 0) {
+			printPassag(&lista[i], out);
+		}
+	}
+}
+
 
 int ThreadEnvioDeMsgParaAvioes(ControllerToPlane* escrever, HANDLE* hFileMap, HANDLE* hEscrita) {
 
