@@ -11,6 +11,7 @@ int getAviao(int id, Aviao lista[]) {
 	return -1;
 }
 
+
 void printAviao(Aviao* aviao, TCHAR* out) {
 	TCHAR* txt = TEXT("id: [%d] Em sistema à %d secs\nIdAeroPorto atual: %d (%d, %d)\nn_passag: %d\nmax_passag: %d\nposPorSegundo: %d\n\n");
 	TCHAR* txtEmViagem = TEXT("id: [%d] Em sistema à %d secs\nEm viagem (x:%d, y:%d)\nposPorSegundo: %d\n\n");

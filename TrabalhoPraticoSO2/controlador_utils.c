@@ -41,6 +41,17 @@ BOOL verificaAeroExiste(TCHAR* nome, Aeroporto lista[]) {
 	return FALSE;
 }
 
+BOOL verificaPassagExiste(TCHAR* nome, Passag lista[]) {
+	for (int i = 0; i < MAXPASSAGEIROS; i++) {
+		pPassag aux = &lista[i];
+		if (_tcscmp(aux->nome, nome) == 0) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+
 int adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]) {
 	pAeroporto aux = NULL;
 	int i;
@@ -109,13 +120,14 @@ void adicionarAviao(Aviao* a, Aviao lista[]) {
 
 void adicionarPassag(pPassag a, Passag lista[]) {
 	pPassag aux = NULL;
-	for (int i = 0; i < MAXAVIOES; i++) {
+	for (int i = 0; i < MAXPASSAGEIROS; i++) {
 		aux = &lista[i];
 		if (aux->pid == 0) {
 			aux->pid = a->pid;
 			aux->tempEspera = a->tempEspera;
 			_tcscpy_s(aux->destino, _countof(aux->destino), a->destino);
 			_tcscpy_s(aux->origem, _countof(aux->origem), a->origem);
+			_tcscpy_s(aux->nome, _countof(aux->nome), a->nome);
 			break;
 		}
 	}
@@ -559,9 +571,3 @@ BOOL ConnectToNewClient(HANDLE hPipe, LPOVERLAPPED lpo)
 	return fPendingIO;
 }
 
-VOID GetAnswerToRequest(LPPIPEINST pipe)
-{
-	_tprintf(TEXT("[%d] %s\n"), pipe->hPipeInst, pipe->chRequest.mensagem);
-	StringCchCopy(pipe->chReply.mensagem, 100, TEXT("Default answer from server"));
-	pipe->cbToWrite = (lstrlen(pipe->chReply.mensagem) + 1) * sizeof(TCHAR);
-}

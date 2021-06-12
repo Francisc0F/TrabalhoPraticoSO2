@@ -68,7 +68,6 @@ struct x {
 	int y;
 	int xBM;
 	int yBM;
-	Aviao listaAvioes[MAXAVIOESAEROPORTO];
 };
 
 typedef struct e Passag, * pPassag;
@@ -83,7 +82,7 @@ struct e {
 typedef struct y MensagemPipe, * pMensagemPipe;
 struct y {
 	Passag autor;
-	TCHAR mensagem[100];
+	TCHAR mensagem[400];
 };
 
 

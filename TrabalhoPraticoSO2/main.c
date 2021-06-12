@@ -263,6 +263,8 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 
 	DWORD i, dwWait, cbRet, dwErr;
 	BOOL fSuccess;
+
+	TCHAR answer[400] = { 0 };
 	while (1)
 	{
 		// Wait for the event object to be signaled, indicating 
@@ -378,8 +380,22 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 			// Get the reply data and write it to the client. 
 
 		case WRITING_STATE:
-			GetAnswerToRequest(&Pipe[i]);
+			if (_tcscmp(Pipe[i].chRequest.mensagem, L"1") == 0) {
+				TCHAR* res = NULL;
+				if (verificaAeroExiste(Pipe[i].chRequest.autor.origem, aeroGlobal) && 
+					 verificaAeroExiste(Pipe[i].chRequest.autor.destino, aeroGlobal) &&
+					 !verificaPassagExiste(Pipe[i].chRequest.autor.nome, passagGlobal)) 
+				{
+					adicionarPassag(&Pipe[i].chRequest.autor, passagGlobal);
+					res = TEXT("a espera de viagem");
+				}
+				else {
+					res = TEXT("erro");
+				}
+				StringCchCopy(Pipe[i].chReply.mensagem, 400, res);
+			}
 
+			Pipe[i].cbToWrite = sizeof(MensagemPipe);
 			fSuccess = WriteFile(
 				Pipe[i].hPipeInst,
 				&Pipe[i].chReply,
@@ -391,6 +407,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 
 			if (fSuccess && cbRet == Pipe[i].cbToWrite)
 			{
+				ResetEvent(Pipe[i].oOverlap.hEvent);
 				Pipe[i].fPendingIO = FALSE;
 				Pipe[i].dwState = READING_STATE;
 				continue;
@@ -504,7 +521,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 
 	Aeroporto aeroportos[MAXAEROPORTOS] = { 0 };
 	aeroGlobal = aeroportos;
-	Aviao avioes[MAXAVIOES] = { 0 };
+	Passag passag[MAXPASSAGEIROS] = { 0 };
+	passagGlobal = passag;
+	ZeroMemory(aeroportos, sizeof(Aeroporto) * MAXAEROPORTOS);
+	ZeroMemory(passag, sizeof(Passag) * MAXPASSAGEIROS);
+	///Aviao avioes[MAXAVIOES] = { 0 };
 
 #pragma region lista de posicoes em mapa partilhado
 	HANDLE hMapaDePosicoesPartilhada = NULL;
@@ -581,6 +602,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	hThreads[2] = CreateThread(NULL, 0, ThreadGestorDeMapa, &gestor, 0, NULL);
 
 
+	// setup aeroportos inicias
+
+//adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
+//adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
+	adicionarAeroporto(TEXT("Lisbon"), 2, 2, aeroportos);
+	adicionarAeroporto(TEXT("Madrid"), 10, 10, aeroportos);
+
 	PIPEINST Pipe[INSTANCES];
 	HANDLE hEvents[INSTANCES];
 	ThreadCriadorPipes threadCriadorPipes;
@@ -589,11 +617,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	hThreads[3] = CreateThread(NULL, 0, CriadorDePIPES, &threadCriadorPipes, 0, NULL);
 
 
-	// setup aeroportos inicias
-	adicionarAeroporto(TEXT("Lisbon"), 2, 2, aeroportos);
-	//adicionarAeroporto(TEXT("Madrid"), 10, 10, aeroportos);
-	//adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
-	//adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
 
 
 	//interacaoConsolaControlador(aeroportos, mapaPartilhadoAvioes, &hMutexAcessoMapa, &escrever);
@@ -665,9 +688,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 
 BOOL GerarConsola() {
 	FILE* fpstdin = stdin, * fpstdout = stdout, * fpstderr = stderr;
-
-	/*SetConsoleOutputCP(CP_UTF8);
-	SetConsoleCP(CP_UTF8);*/
 
 	freopen_s(&fpstdin, "CONIN$", "r", stdin);
 	freopen_s(&fpstdout, "CONOUT$", "w", stdout);
@@ -918,14 +938,14 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 
 				int i = (int)SendMessage(hwndList, LB_GETITEMDATA, lbItem, 0);
 
-				//	Aeroporto* aux = &aeroGlobal[i];
-				Passag* p = &passagGlobal[0];
+			    Aeroporto* aux = &aeroGlobal[i];
+				//Passag* p = &passagGlobal[0];
 				TCHAR buff[MAX_PATH];
-				//TCHAR* formatStr = TEXT("id: [%d]\nNome: [%s]\nPosicao: (%d, %d)\n");
-				TCHAR* formatStr = PASSAGFORMAT;
+				TCHAR* formatStr = TEXT("id: [%d]\nNome: [%s]\nPosicao: (%d, %d)\n");
+				///TCHAR* formatStr = PASSAGFORMAT;
 
-				//StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, aux->id, aux->nome, aux->x, aux->y);
-				StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, p->pid, p->nome, p->origem, p->destino, p->tempEspera);
+				StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, aux->id, aux->nome, aux->x, aux->y);
+				//StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, p->pid, p->nome, p->origem, p->destino, p->tempEspera);
 
 				SetDlgItemText(hWnd, IDC_STATIC_3, buff);
 				return TRUE;

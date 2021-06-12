@@ -79,6 +79,7 @@ typedef struct {
 void menuControlador();
 
 BOOL verificaAeroExiste(TCHAR* nome, Aeroporto lista[]);
+BOOL verificaPassagExiste(TCHAR* nome, Passag lista[]);
 BOOL verificaAeroCords(int x, int y, Aeroporto lista[]);
 void adicionarAviao(Aviao* a, Aviao lista[]);
 
@@ -88,6 +89,8 @@ void removerTodos(Aviao lista[]);
 void listaAvioes(Aviao lista[], TCHAR* out);
 
 int getAeroporto(int id, Aeroporto lista[]);
+void listaPassageiros(Passag lista[], TCHAR* out);
+void adicionarPassag(pPassag a, Passag lista[]);
 
 int adicionarAeroporto(TCHAR* nome, int x, int y, Aeroporto lista[]);
 void listaAeroportos(Aeroporto lista[], TCHAR* out);
@@ -106,5 +109,4 @@ int setupMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso);
 void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPartilhadoAvioes, HANDLE* hmutexMapaPartilhado, ControllerToPlane* escrita);
 
 VOID DisconnectAndReconnect(LPPIPEINST Pipe);
-VOID GetAnswerToRequest(LPPIPEINST pipe);
 BOOL ConnectToNewClient(HANDLE hPipe, LPOVERLAPPED lpo);
