@@ -1,11 +1,9 @@
 #pragma once
-#define MAXAVIOESAEROPORTO 100
 #define MAXAEROPORTOS 100
 #define MAXPASSAGEIROS 100
 #define MAXAVIOES 100
 
 #define SEMAPHORE_NUM_AVIOES "SEMAPHORE_NUM_AVIOES"
-#define	READMAP "READMAP"
 #define MAPA_PARTILHADO "MAPA_PARTILHADO"
 #define MUTEX_MAPA_PARTILHADO "MUTEX_MAPA_PARTILHADO"
 
@@ -14,23 +12,18 @@
 #define FILE_MAP_MSG_TO_PLANES "FILE_MAP_MSG_TO_PLANES"
 #define EVENT_MSG_TO_PLANES "EVENT_MSG_TO_PLANES"
 #define MUTEX_MSG_TO_PLANES "MUTEX_MSG_TO_PLANES"
-#define NUM_CHAR_FILE_MAP 200
 
 #define FILE_MAP_MSG_TO_CONTROLER "FILE_MAP_MSG_TO_CONTROLER"
 #define SEMAPHORE_ESCRITA_MSG_TO_CONTROLER "SEMAPHORE_ESCRITA_MSG_TO_CONTROLER"
 #define SEMAPHORE_LEITURA_MSG_TO_CONTROLER "SEMAPHORE_LEITURA_MSG_TO_CONTROLER"
 #define MUTEX_PRODUTOR_MSG_TO_CONTROLER "MUTEX_PRODUTOR_MSG_TO_CONTROLER"
-#define MUTEX_CONSUMIDOR_MSG_TO_CONTROLER "MUTEX_CONSUMIDOR_MSG_TO_CONTROLER"
 
 #define BITMAPAVIAO "aviao1.bmp"
 #define BITMAPAERO "aeroporto.bmp"
 
-
 #define TAM_BUFFER_CIRCULAR 100
 
-
 #define PIPEPASSAG TEXT("\\\\.\\pipe\\passag")
-#define BUFSIZE 512
 
 typedef struct t AviaoMsg, * pAviaoMsg;
 struct t {
@@ -113,11 +106,10 @@ typedef struct {
 }MSGcel;
 
 typedef struct {
-	int nProdutores; // num avioes
-	int nConsumidores;// vai ser apenas um, o controlador
-	int posE; 
+	int nAvioes;
+	int posE;
 	int posL;
-	MSGcel buffer[TAM_BUFFER_CIRCULAR]; 
+	MSGcel buffer[TAM_BUFFER_CIRCULAR];
 }BufferCircular;
 
 

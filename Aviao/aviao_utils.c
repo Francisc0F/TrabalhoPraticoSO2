@@ -93,7 +93,6 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 	*hFileEscritaMap = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, FILE_MAP_MSG_TO_CONTROLER);
 	if (*hFileEscritaMap == NULL) {
 		primeiroProcesso = TRUE;
-		//criamos o bloco de memoria partilhada
 		*hFileEscritaMap = CreateFileMapping(
 			INVALID_HANDLE_VALUE,
 			NULL,
@@ -118,8 +117,8 @@ void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread*
 
 	//nProdutores, sao o que define os ids dos avioes
 	WaitForSingleObject(escreve->hMutex, INFINITE);
-	escreve->bufferPartilhado->nProdutores++;
-	escreve->idAviao = escreve->bufferPartilhado->nProdutores;
+	escreve->bufferPartilhado->nAvioes++;
+	escreve->idAviao = escreve->bufferPartilhado->nAvioes;
 	ReleaseMutex(escreve->hMutex);
 }
 
@@ -249,7 +248,7 @@ void setupAviao(Aviao* aviao, ThreadsControlerAviao* control) {
 
 int abrirMapaPartilhado(HANDLE* hMapaDePosicoesPartilhada, HANDLE* mutexAcesso) {
 	*hMapaDePosicoesPartilhada = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, MAPA_PARTILHADO);
-	if (*hMapaDePosicoesPartilhada == NULL) {
+	if (*hMapaDePosicoesPartilhada == INVALID_HANDLE_VALUE) {
 		_tprintf(TEXT("Controlador nao esta disponivel.\n"));
 		return 1;
 	}

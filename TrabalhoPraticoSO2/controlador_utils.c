@@ -418,9 +418,6 @@ int preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 	ler->hSemEscrita = CreateSemaphore(NULL, TAM_BUFFER_CIRCULAR, TAM_BUFFER_CIRCULAR, SEMAPHORE_ESCRITA_MSG_TO_CONTROLER);
 	ler->hSemLeitura = CreateSemaphore(NULL, 0, TAM_BUFFER_CIRCULAR, SEMAPHORE_LEITURA_MSG_TO_CONTROLER);
 
-	//criar mutex para os consumidores neste caso so ha 1, o Controlador
-	ler->hMutex = CreateMutex(NULL, FALSE, MUTEX_CONSUMIDOR_MSG_TO_CONTROLER);
-
 	if (ler->hSemEscrita == NULL || ler->hSemLeitura == NULL || ler->hMutex == NULL) {
 		_tprintf(TEXT("Erro no CreateSemaphore hSemLeitura hSemEscrita ou no CreateMutex\n"));
 		return -1;
@@ -450,12 +447,10 @@ int preparaParaLerInfoDeAvioes(MSGThread* ler, HANDLE* hLerFileMap) {
 		_tprintf(TEXT("Erro no MapViewOfFile\n"));
 		return -1;
 	}
-	// inicializar buffer circular partilhado 
-	ler->bufferPartilhado->nConsumidores = 0;
-	ler->bufferPartilhado->nProdutores = 0;
+
+	ler->bufferPartilhado->nAvioes = 0;
 	ler->bufferPartilhado->posE = 0;
 	ler->bufferPartilhado->posL = 0;
-
 	ler->terminar = 0;
 
 	return 0;
@@ -466,7 +461,7 @@ void enviarMensagemBroadCast(ControllerToPlane* escreve, TCHAR* info) {
 	escreve->msgToSend.idAviao = -1;
 	SetEvent(escreve->hEventOrdemDeEscrever);
 	Sleep(50);
-	ResetEvent(escreve->hEventOrdemDeEscrever); //bloqueia evento
+	ResetEvent(escreve->hEventOrdemDeEscrever);
 }
 
 void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info) {
@@ -474,7 +469,7 @@ void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info) {
 	escreve->msgToSend.idAviao = id;
 	SetEvent(escreve->hEventOrdemDeEscrever);
 	Sleep(50);
-	ResetEvent(escreve->hEventOrdemDeEscrever); //bloqueia evento
+	ResetEvent(escreve->hEventOrdemDeEscrever); 
 }
 
 void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPartilhadoAvioes, HANDLE* mutexAccessoMapa, ControllerToPlane* escrita) {

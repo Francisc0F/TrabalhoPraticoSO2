@@ -29,21 +29,20 @@ HDC memDC = NULL; // copia do device context que esta em memoria, tem de ser ini
 HBITMAP hBitmapDB; // copia as caracteristicas da janela original para a janela que vai estar em memoria
 HANDLE hConsola;
 
-
 Aeroporto* aeroGlobal = NULL;
 Aviao* aviaoGlobal = NULL;
 Passag* passagGlobal = NULL;
 
-#pragma endregion 
+#pragma endregion
 
-#pragma region declaracaoFuncoes 
+#pragma region declaracaoFuncoes
 BOOL GerarConsola();
 BOOL GerarWindow(WNDCLASSEX* wcApp);
 BOOL GerarJanelaUI(HWND* hWnd, WNDCLASSEX* wcApp);
 BOOL carregaBitmaps(HWND* hWnd);
 LRESULT CALLBACK TrataEventos(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK TrataEventosAdministrador(HWND, UINT, WPARAM, LPARAM);
-#pragma endregion 
+#pragma endregion
 
 #pragma region threads declaration
 
@@ -61,17 +60,16 @@ DWORD WINAPI ThreadEscrever(LPVOID param) {
 		CopyMemory(dados->fileViewMap, &dados->msgToSend, sizeof(MSGCtrlToPlane));
 		ReleaseMutex(dados->hMutex);
 
-
 		//evento ordem para "ir ler" mensagem, para todos os avioes
-		SetEvent(dados->hEvent);// desbloqueia evento   
+		SetEvent(dados->hEvent);// desbloqueia evento
 		Sleep(100);
 		ResetEvent(dados->hEvent); //bloqueia evento
 	}
 	return 0;
 }
-#pragma endregion 
+#pragma endregion
 
-#pragma region buffer circular leitura 
+#pragma region buffer circular leitura
 DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 	ThreadsControlerControlador* threadControl = (ThreadsControlerControlador*)param;
 	MSGThread* dados = threadControl->leitura;
@@ -82,14 +80,11 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 	while (!dados->terminar) {
 		WaitForSingleObject(dados->hSemLeitura, INFINITE);
 		WaitForSingleObject(dados->hMutex, INFINITE);
-
 		CopyMemory(&celLocal, &bufferPartilhado->buffer[bufferPartilhado->posL], sizeof(MSGcel));
 		bufferPartilhado->posL++;
 		if (bufferPartilhado->posL == TAM_BUFFER_CIRCULAR)
 			bufferPartilhado->posL = 0;
-
 		ReleaseMutex(dados->hMutex);
-
 		ReleaseSemaphore(dados->hSemEscrita, 1, NULL);
 
 		_tprintf(TEXT("Aviao: %d msg: %s\n"), celLocal.id, celLocal.info);
@@ -102,17 +97,18 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 
 			WaitForSingleObject(*threadControl->hMutexAcessoMapa, INFINITE);
 			adicionarAviao(&celLocal.aviao, threadControl->avioes);
-			_tprintf(TEXT("adicionou aviao\n"));
 			(*threadControl->numAtualAvioes)++;
 			ReleaseMutex(*threadControl->hMutexAcessoMapa);
+			_tprintf(TEXT("adicionou aviao\n"));
 
-			if ((*threadControl->numAtualAvioes) == 1) {
+
+			if (*threadControl->numAtualAvioes == 1) {
 				//iniciar timer de aviso periodico de avioes
 				LARGE_INTEGER liDueTime;
-				liDueTime.QuadPart = -30000000LL; // comeca daqui a 3 
+				liDueTime.QuadPart = -30000000LL; // comeca daqui a 3
 				if (!SetWaitableTimer(threadControl->hTimerPing,
 					&liDueTime,
-					3000,  // fica periodic a cada 3 secs 
+					3000,  // fica periodic a cada 3 secs
 					NULL,
 					NULL,
 					0))
@@ -124,19 +120,16 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 				// todo cancel waitabletimer
 			}
 
-
-
 			TCHAR send[100] = { 0 };
 			preparaStringdeCords(send, aux->x, aux->y);
 			enviarMensagemParaAviao(celLocal.id, threadControl->escrita, send);
-
-		}if (_tcscmp(celLocal.info, TEXT("aero")) == 0) {
+		}
+		else if (_tcscmp(celLocal.info, TEXT("aero")) == 0) {
 			_tprintf(TEXT("Enviou %s.\n"), celLocal.info);
 			TCHAR info[400] = TEXT("");
 			listaAeroportos(threadControl->listaAeroportos, info);
 			enviarMensagemParaAviao(celLocal.id, threadControl->escrita, info);
-		}
-		else {
+		} else {
 			TCHAR* nextToken;
 			TCHAR* delim = L" ";
 			TCHAR* token = _tcstok_s(celLocal.info, delim, &nextToken);
@@ -172,7 +165,6 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 				}
 			}
 		}
-
 	}
 
 	return 0;
@@ -203,20 +195,18 @@ DWORD WINAPI ThreadGestorDeMapa(LPVOID param) {
 							_tprintf(L"Aviao %d Desapareceu no radar.\n", local->id);
 							removerEm(index, listaPartilhada);
 							threadControl->MapaPartilhadoLocal.numAtualAvioes--;
-							// pode entrar mais um 
+							// pode entrar mais um
 							ReleaseSemaphore(threadControl->hControloDeNumeroDeAvioes, 1, NULL);
 						}
 					}
 					else {
 						_tprintf(L"Erro nao encontrou aviao na mem partilhada 173");
 					}
-
 				}
 				CopyMemory(&threadControl->MapaPartilhadoLocal, threadControl->MapaPartilhado, sizeof(MapaPartilhado));
 			}
 			ReleaseMutex(threadControl->hMutexAcessoMapa);
 		}
-
 	}
 
 	return 0;
@@ -234,8 +224,6 @@ DWORD WINAPI atualizaUI(LPVOID param) {
 		// Aguarda que o mutex esteja livre
 		WaitForSingleObject(hMutexPintura, INFINITE);
 
-
-
 		for (int i = 0; i < MAXAVIOES; i++) {
 			if (lista[i].id != 0) {
 				Aviao* aux = &listaAvi[i];
@@ -243,7 +231,6 @@ DWORD WINAPI atualizaUI(LPVOID param) {
 				aux->yBM = aux->y * 10;
 			}
 		}
-
 
 		//liberta mutex
 		ReleaseMutex(hMutexPintura);
@@ -253,10 +240,9 @@ DWORD WINAPI atualizaUI(LPVOID param) {
 		Sleep(1);
 	}
 	return 0;
-
 }
 
-#pragma endregion 
+#pragma endregion
 DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 	HANDLE* hEvents = dados->hEvents;
 	LPPIPEINST Pipe = dados->hPipes;
@@ -267,37 +253,37 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 	TCHAR answer[400] = { 0 };
 	while (1)
 	{
-		// Wait for the event object to be signaled, indicating 
-		// completion of an overlapped read, write, or 
-		// connect operation. 
+		// Wait for the event object to be signaled, indicating
+		// completion of an overlapped read, write, or
+		// connect operation.
 
 		dwWait = WaitForMultipleObjects(
-			INSTANCES,    // number of event objects 
-			hEvents,      // array of event objects 
-			FALSE,        // does not wait for all 
-			INFINITE);    // waits indefinitely 
+			INSTANCES,    // number of event objects
+			hEvents,      // array of event objects
+			FALSE,        // does not wait for all
+			INFINITE);    // waits indefinitely
 
-	  // dwWait shows which pipe completed the operation. 
+	  // dwWait shows which pipe completed the operation.
 
-		i = dwWait - WAIT_OBJECT_0;  // determines which pipe 
+		i = dwWait - WAIT_OBJECT_0;  // determines which pipe
 		if (i < 0 || i >(INSTANCES - 1))
 		{
 			_tprintf(L"Index out of range.\n");
 			return 0;
 		}
 
-		// Get the result if the operation was pending. 
+		// Get the result if the operation was pending.
 		if (Pipe[i].fPendingIO)
 		{
 			fSuccess = GetOverlappedResult(
-				Pipe[i].hPipeInst, // handle to pipe 
-				&Pipe[i].oOverlap, // OVERLAPPED structure 
-				&cbRet,            // bytes transferred 
-				FALSE);            // do not wait 
+				Pipe[i].hPipeInst, // handle to pipe
+				&Pipe[i].oOverlap, // OVERLAPPED structure
+				&cbRet,            // bytes transferred
+				FALSE);            // do not wait
 
 			switch (Pipe[i].dwState)
 			{
-				// Pending connect operation 
+				// Pending connect operation
 			case CONNECTING_STATE:
 				if (!fSuccess)
 				{
@@ -307,7 +293,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 				Pipe[i].dwState = READING_STATE;
 				break;
 
-				// Pending read operation 
+				// Pending read operation
 			case READING_STATE:
 				if (!fSuccess || cbRet == 0)
 				{
@@ -318,7 +304,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 				Pipe[i].dwState = WRITING_STATE;
 				break;
 
-				// Pending write operation 
+				// Pending write operation
 			case WRITING_STATE:
 				if (!fSuccess || cbRet != Pipe[i].cbToWrite)
 				{
@@ -336,13 +322,13 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 			}
 		}
 
-		// The pipe state determines which operation to do next. 
+		// The pipe state determines which operation to do next.
 
 		switch (Pipe[i].dwState)
 		{
-			// READING_STATE: 
-			// The pipe instance is connected to the client 
-			// and is ready to read a request from the client. 
+			// READING_STATE:
+			// The pipe instance is connected to the client
+			// and is ready to read a request from the client.
 
 		case READING_STATE:
 			fSuccess = ReadFile(
@@ -352,7 +338,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 				&Pipe[i].cbRead,
 				&Pipe[i].oOverlap);
 
-			// The read operation completed successfully. 
+			// The read operation completed successfully.
 
 			if (fSuccess && Pipe[i].cbRead != 0)
 			{
@@ -361,7 +347,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 				continue;
 			}
 
-			// The read operation is still pending. 
+			// The read operation is still pending.
 
 			dwErr = GetLastError();
 			if (!fSuccess && (dwErr == ERROR_IO_PENDING))
@@ -370,21 +356,21 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 				continue;
 			}
 
-			// An error occurred; disconnect from the client. 
+			// An error occurred; disconnect from the client.
 
 			DisconnectAndReconnect(&Pipe[i]);
 			break;
 
-			// WRITING_STATE: 
-			// The request was successfully read from the client. 
-			// Get the reply data and write it to the client. 
+			// WRITING_STATE:
+			// The request was successfully read from the client.
+			// Get the reply data and write it to the client.
 
 		case WRITING_STATE:
 			if (_tcscmp(Pipe[i].chRequest.mensagem, L"1") == 0) {
 				TCHAR* res = NULL;
-				if (verificaAeroExiste(Pipe[i].chRequest.autor.origem, aeroGlobal) && 
-					 verificaAeroExiste(Pipe[i].chRequest.autor.destino, aeroGlobal) &&
-					 !verificaPassagExiste(Pipe[i].chRequest.autor.nome, passagGlobal)) 
+				if (verificaAeroExiste(Pipe[i].chRequest.autor.origem, aeroGlobal) &&
+					verificaAeroExiste(Pipe[i].chRequest.autor.destino, aeroGlobal) &&
+					!verificaPassagExiste(Pipe[i].chRequest.autor.nome, passagGlobal))
 				{
 					adicionarPassag(&Pipe[i].chRequest.autor, passagGlobal);
 					res = TEXT("a espera de viagem");
@@ -403,7 +389,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 				&cbRet,
 				&Pipe[i].oOverlap);
 
-			// The write operation completed successfully. 
+			// The write operation completed successfully.
 
 			if (fSuccess && cbRet == Pipe[i].cbToWrite)
 			{
@@ -413,7 +399,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 				continue;
 			}
 
-			// The write operation is still pending. 
+			// The write operation is still pending.
 
 			dwErr = GetLastError();
 			if (!fSuccess && (dwErr == ERROR_IO_PENDING))
@@ -422,7 +408,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 				continue;
 			}
 
-			// An error occurred; disconnect from the client. 
+			// An error occurred; disconnect from the client.
 
 			DisconnectAndReconnect(&Pipe[i]);
 			break;
@@ -434,7 +420,6 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 		}
 		}
 	}
-
 }
 
 DWORD WINAPI CriadorDePIPES(LPVOID param) {
@@ -443,13 +428,12 @@ DWORD WINAPI CriadorDePIPES(LPVOID param) {
 	LPPIPEINST Pipe = dados->hPipes;
 	for (int i = 0; i < INSTANCES; i++)
 	{
-
-		// Create an event object for this instance. 
+		// Create an event object for this instance.
 		hEvents[i] = CreateEvent(
-			NULL,    // default security attribute 
-			TRUE,    // manual-reset event 
-			TRUE,    // initial state = signaled 
-			NULL);   // unnamed event object 
+			NULL,    // default security attribute
+			TRUE,    // manual-reset event
+			TRUE,    // initial state = signaled
+			NULL);   // unnamed event object
 
 		if (hEvents[i] == NULL)
 		{
@@ -460,17 +444,17 @@ DWORD WINAPI CriadorDePIPES(LPVOID param) {
 		Pipe[i].oOverlap.hEvent = hEvents[i];
 
 		Pipe[i].hPipeInst = CreateNamedPipe(
-			PIPEPASSAG,            // pipe name 
-			PIPE_ACCESS_DUPLEX |     // read/write access 
-			FILE_FLAG_OVERLAPPED,    // overlapped mode 
-			PIPE_TYPE_MESSAGE |      // message-type pipe 
-			PIPE_READMODE_MESSAGE |  // message-read mode 
-			PIPE_WAIT,               // blocking mode 
-			PIPE_UNLIMITED_INSTANCES, // max. instances             
-			sizeof(MensagemPipe),   // output buffer size 
-			sizeof(MensagemPipe),   // input buffer size 
-			PIPE_TIMEOUT,            // client time-out 
-			NULL);                   // default security attributes 
+			PIPEPASSAG,            // pipe name
+			PIPE_ACCESS_DUPLEX |     // read/write access
+			FILE_FLAG_OVERLAPPED,    // overlapped mode
+			PIPE_TYPE_MESSAGE |      // message-type pipe
+			PIPE_READMODE_MESSAGE |  // message-read mode
+			PIPE_WAIT,               // blocking mode
+			PIPE_UNLIMITED_INSTANCES, // max. instances
+			sizeof(MensagemPipe),   // output buffer size
+			sizeof(MensagemPipe),   // input buffer size
+			PIPE_TIMEOUT,            // client time-out
+			NULL);                   // default security attributes
 
 		if (Pipe[i].hPipeInst == INVALID_HANDLE_VALUE)
 		{
@@ -485,25 +469,16 @@ DWORD WINAPI CriadorDePIPES(LPVOID param) {
 			&Pipe[i].oOverlap);
 
 		Pipe[i].dwState = Pipe[i].fPendingIO ?
-			CONNECTING_STATE : // still connecting 
-			READING_STATE;     // ready to read 
-
-
-
+			CONNECTING_STATE : // still connecting
+			READING_STATE;     // ready to read
 	}
 
-
 	MensagensPipes(dados);
-
 }
 
-
-
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
-
 	AllocConsole();
 	GerarConsola();
-
 	TCHAR* erroControl = TEXT("Controlador vai Terminar.\n");
 
 #pragma region regedit keys setup
@@ -517,7 +492,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		_tprintf(erroControl);
 		return -1;
 	}
-#pragma endregion 
+#pragma endregion
 
 	Aeroporto aeroportos[MAXAEROPORTOS] = { 0 };
 	aeroGlobal = aeroportos;
@@ -525,7 +500,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	passagGlobal = passag;
 	ZeroMemory(aeroportos, sizeof(Aeroporto) * MAXAEROPORTOS);
 	ZeroMemory(passag, sizeof(Passag) * MAXPASSAGEIROS);
-	///Aviao avioes[MAXAVIOES] = { 0 };
 
 #pragma region lista de posicoes em mapa partilhado
 	HANDLE hMapaDePosicoesPartilhada = NULL;
@@ -542,7 +516,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	ReleaseMutex(hMutexAcessoMapa);
 #pragma endregion
 	aviaoGlobal = mapaPartilhadoAvioes->avioesMapa;
-
 
 	ThreadsControlerControlador controler;
 	controler.listaAeroportos = aeroportos;
@@ -562,14 +535,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		_tprintf(TEXT("Erro no CreateSemaphore controloDeNumeroDeAvioes\n"));
 		return -1;
 	}
-#pragma endregion 
+#pragma endregion
 
 	HANDLE hThreads[5];
 
 	// ouvir mensagens dos avioes
 	MSGThread ler;
 	HANDLE hLerFileMap;
-	HANDLE hThreadLeitura;
 	controler.leitura = &ler;
 	check = preparaParaLerInfoDeAvioes(controler.leitura, &hLerFileMap);
 	if (check != 0) {
@@ -601,7 +573,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	gestor.terminar = 0;
 	hThreads[2] = CreateThread(NULL, 0, ThreadGestorDeMapa, &gestor, 0, NULL);
 
-
 	// setup aeroportos inicias
 
 //adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
@@ -616,18 +587,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	threadCriadorPipes.hEvents = hEvents;
 	hThreads[3] = CreateThread(NULL, 0, CriadorDePIPES, &threadCriadorPipes, 0, NULL);
 
-
-
-
 	//interacaoConsolaControlador(aeroportos, mapaPartilhadoAvioes, &hMutexAcessoMapa, &escrever);
 
-	// UI 
+	// UI
 
 	HWND hWnd;		// hWnd é o handler da janela, gerado mais abaixo por CreateWindow()
 	MSG lpMsg;		// MSG é uma estrutura definida no Windows para as mensagens
 	WNDCLASSEX wcApp;	// WNDCLASSEX é uma estrutura cujos membros servem para
 			  // definir as características da classe da janela
-
 
 	hInstGlobal = hInst;
 	if (!GerarWindow(&wcApp)) {
@@ -635,13 +602,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		return -5;
 	}
 
-
 	// ============================================================================
 	// 2. Registar a classe "wcApp" no Windows
 	// ============================================================================
 	if (!RegisterClassEx(&wcApp))
 		return(0);
-
 
 	if (!GerarJanelaUI(&hWnd, &wcApp)) {
 		_tprintf(TEXT("Erro: GerarJanelaUI\n"));
@@ -649,7 +614,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	}
 
 	carregaBitmaps(&hWnd);
-
 
 	hMutexPintura = CreateMutex(NULL, FALSE, NULL);
 	ThreadAtualizaUI atualiza;
@@ -669,8 +633,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		}
 	}
 
-
-
 	//if (hThreads[3] != NULL) {
 	//	WaitForSingleObject(hThreads[3], INFINITE);
 	//	CloseHandle(hMapaDePosicoesPartilhada);
@@ -679,7 +641,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 //	if (hThreads[0] != NULL && hThreads[1] != NULL && hThreads[2] != NULL && hThreads[3] != NULL)
 //		WaitForMultipleObjects(4, hThreads, TRUE, INFINITE);
 
-
 		// ============================================================================
 	// 6. Fim do programa
 	// ============================================================================
@@ -687,13 +648,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 }
 
 BOOL GerarConsola() {
-	FILE* fpstdin = stdin, * fpstdout = stdout, * fpstderr = stderr;
+	FILE* fpstdin = stdin,* fpstdout = stdout, * fpstderr = stderr;
 
 	freopen_s(&fpstdin, "CONIN$", "r", stdin);
 	freopen_s(&fpstdout, "CONOUT$", "w", stdout);
 	freopen_s(&fpstderr, "CONOUT$", "w", stderr);
 	SetConsoleTitle(L"Controlador Debug");
-
 }
 
 BOOL GerarWindow(WNDCLASSEX* wcApp) {
@@ -712,7 +672,6 @@ BOOL GerarWindow(WNDCLASSEX* wcApp) {
 }
 
 BOOL GerarJanelaUI(HWND* hWnd, WNDCLASSEX* wcApp) {
-
 	*hWnd = CreateWindow(
 		wcApp->lpszClassName,			// Nome da janela (programa) definido acima
 		TEXT("Controlador"),// Texto que figura na barra do título
@@ -746,7 +705,6 @@ BOOL carregaBitmaps(HWND* hWnd) {
 	}
 	GetObject(hBmpAviao, sizeof(bmpAviao), &bmpAviao);
 
-
 	hBmpAero = (HBITMAP)LoadImage(NULL, TEXT(BITMAPAERO), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	error = GetLastError();
 	if (hBmpAero == NULL) {
@@ -776,15 +734,13 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	PAINTSTRUCT ps;
 	RECT rect;
 
-
 	switch (messg)
 	{
 		//case WM_CREATE:
-		//	
+		//
 		//	break;
 
 	case WM_COMMAND: {
-
 		switch (LOWORD(wParam))
 		{
 		case ID_ADMIN_GENERAL:
@@ -792,7 +748,6 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			break;
 		}
 		break;
-
 	}
 	case WM_PAINT:
 		// Inicio da pintura da janela, que substitui o GetDC
@@ -840,7 +795,6 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	case WM_CLOSE:
 
 		if (MessageBox(hWnd, TEXT("Tem a certeza que quer sair?"), TEXT("Confirmação"), MB_YESNO | MB_ICONQUESTION) == IDYES) {
-
 			DestroyWindow(hWnd);
 		}
 		break;
@@ -863,10 +817,9 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 
 	switch (messg)
 	{
-
 	case WM_INITDIALOG:
 	{
-		// Add items to list. 
+		// Add items to list.
 		HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
 		for (int i = 0; i < MAXAEROPORTOS; i++)
 		{
@@ -938,7 +891,7 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 
 				int i = (int)SendMessage(hwndList, LB_GETITEMDATA, lbItem, 0);
 
-			    Aeroporto* aux = &aeroGlobal[i];
+				Aeroporto* aux = &aeroGlobal[i];
 				//Passag* p = &passagGlobal[0];
 				TCHAR buff[MAX_PATH];
 				TCHAR* formatStr = TEXT("id: [%d]\nNome: [%s]\nPosicao: (%d, %d)\n");
@@ -997,7 +950,6 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 			}
 
 			MessageBox(hWnd, TEXT("Erro dados Invalidos"), TEXT("OK"), MB_ICONERROR);
-
 		}
 		break;
 

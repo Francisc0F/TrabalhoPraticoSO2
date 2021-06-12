@@ -3,8 +3,6 @@
 #include "../utils.h"
 #define TAM 200
 #define MAPFACTOR 10
-
-
 #define PASSAGFORMAT TEXT("\nid: [%d] Nome: [%s] Origem: %s Destino: %s Tempo espera: %d\n");
 
 typedef struct {
@@ -47,10 +45,10 @@ typedef struct {
 	int terminar;
 }ThreadAtualizaUI;
 
-#define CONNECTING_STATE 0 
-#define READING_STATE 1 
-#define WRITING_STATE 2 
-#define INSTANCES 4 
+#define CONNECTING_STATE 0
+#define READING_STATE 1
+#define WRITING_STATE 2
+#define INSTANCES 4
 #define PIPE_TIMEOUT 5000
 
 typedef struct
