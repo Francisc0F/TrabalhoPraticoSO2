@@ -34,7 +34,7 @@ void printAviao(Aviao* aviao, TCHAR* out) {
 		else {
 			_tprintf(txt,aviao->id, aviao->segundosVivo, aviao->idAeroporto, aviao->x, aviao->y, aviao->n_passag, aviao->max_passag, aviao->posPorSegundo);
 		}
-		
+
 	}
 }
 
@@ -88,6 +88,7 @@ void obterCordsDeString(TCHAR* msg, int *x, int *y) {
 	TCHAR* cordX = _tcstok_s(cords, delim, &cordY);
 	*x = _tstoi(cords);
 	*y = _tstoi(cordY);
+	_tprintf(TEXT("CORDS %d, %d\n"), *x, *y);
 }
 
 

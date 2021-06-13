@@ -103,7 +103,7 @@ void adicionarAviao(Aviao* a, Aviao lista[]) {
 			lista[i].max_passag = a->max_passag;
 			lista[i].posPorSegundo = a->posPorSegundo;
 			lista[i].x = a->x;
-			lista[i].y = a->x;
+			lista[i].y = a->y;
 
 			lista[i].segundosVivo = 0;
 

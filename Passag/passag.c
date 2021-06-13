@@ -152,7 +152,6 @@ int _tmain(int argc, LPTSTR argv[])
 
 
 		while (1) {
-			//WaitForSingleObject(hPipe., INFINITE);
 			if (!WriteToPIPE(&cbToWrite, &fSuccess, &Message, &hPipe, &cbWritten)) {
 				return -1;
 			}

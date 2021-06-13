@@ -321,7 +321,7 @@ int viajar(ThreadGerirViagens* dados) {
 			int nextY = aviaoLocal->proxDestinoY;
 
 			int currX = aviaoLocal->x;
-			int currY = aviaoLocal->x;
+			int currY = aviaoLocal->y;
 
 			aviaoLocal->statusViagem = 1;
 			while (aviaoLocal->statusViagem == 1) {

@@ -11,13 +11,14 @@
 #define MAX 1000
 #define MAP 1000
 #define MAXAVIOES 100
-
+#define NThreads 5
 #define TID_POLLMOUSE 100
 #define MOUSE_POLL_DELAY 20
 
-POINT pt = { 0,0};
+
 
 #pragma region declaracaoGlobais para UI
+POINT pt = { 0,0 };
 HBITMAP hBmpAviao;
 HBITMAP hBmpAero;
 HDC bmpAviaoDC; // hdc do bitmap
@@ -216,7 +217,7 @@ DWORD WINAPI atualizaUI(LPVOID param) {
 	ThreadAtualizaUI* dados = (ThreadAtualizaUI*)param;
 	MapaPartilhado* mapa = dados->MapaPartilhado;
 	Aviao* listaAvi = mapa->avioesMapa;
-	while (1) {
+	while (!dados->terminar) {
 
 		// Aguarda que o mutex esteja livre
 		WaitForSingleObject(hMutexPintura, INFINITE);
@@ -248,7 +249,7 @@ DWORD MensagensPipes(ThreadCriadorPipes* dados) {
 	BOOL fSuccess;
 
 	TCHAR answer[400] = { 0 };
-	while (1)
+	while (!dados->terminar)
 	{
 		// Wait for the event object to be signaled, indicating
 		// completion of an overlapped read, write, or
@@ -537,7 +538,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 #pragma endregion
 
 	HANDLE hThreads[5];
-
+	int* threadsStatus[NThreads];
 	// ouvir mensagens dos avioes
 	MSGThread ler;
 	HANDLE hLerFileMap;
@@ -547,6 +548,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		_tprintf(erroControl);
 		return -1;
 	}
+	threadsStatus[0] = &ler.terminar;
 	hThreads[0] = CreateThread(NULL, 0, ThreadLerBufferCircular, &controler, 0, NULL);
 
 	// escrever para os avioes
@@ -560,6 +562,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		return -1;
 	}
 
+	threadsStatus[1] = &escrever.terminar;
 	hThreads[1] = CreateThread(NULL, 0, ThreadEscrever, &controler, 0, NULL);
 
 	// gestor de mapa
@@ -570,6 +573,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	gestor.hMutexAcessoMapa = &hMutexAcessoMapa;
 	gestor.hControloDeNumeroDeAvioes = controloDeNumeroDeAvioes;
 	gestor.terminar = 0;
+	threadsStatus[2] = &gestor.terminar;
 	hThreads[2] = CreateThread(NULL, 0, ThreadGestorDeMapa, &gestor, 0, NULL);
 
 	// setup aeroportos inicias
@@ -584,9 +588,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	ThreadCriadorPipes threadCriadorPipes;
 	threadCriadorPipes.hPipes = Pipe;
 	threadCriadorPipes.hEvents = hEvents;
+	threadCriadorPipes.terminar = 0;
+	threadsStatus[3] = &threadCriadorPipes.terminar;
 	hThreads[3] = CreateThread(NULL, 0, CriadorDePIPES, &threadCriadorPipes, 0, NULL);
-
-	//interacaoConsolaControlador(aeroportos, mapaPartilhadoAvioes, &hMutexAcessoMapa, &escrever);
 
 	// UI
 
@@ -601,11 +605,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		return -5;
 	}
 
-	// ============================================================================
-	// 2. Registar a classe "wcApp" no Windows
-	// ============================================================================
-	if (!RegisterClassEx(&wcApp))
+	if (!RegisterClassEx(&wcApp)) {
+		_tprintf(TEXT("Erro: GerarJanelaUI\n"));
 		return(0);
+	}
 
 	if (!GerarJanelaUI(&hWnd, &wcApp)) {
 		_tprintf(TEXT("Erro: GerarJanelaUI\n"));
@@ -617,7 +620,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	hMutexPintura = CreateMutex(NULL, FALSE, NULL);
 	ThreadAtualizaUI atualiza;
 	atualiza.MapaPartilhado = mapaPartilhadoAvioes;
-	CreateThread(NULL, 0, atualizaUI, &atualiza, 0, NULL);
+	atualiza.terminar = 0;
+	threadsStatus[4] = &atualiza.terminar;
+	hThreads[4] = CreateThread(NULL, 0, atualizaUI, &atualiza, 0, NULL);
 	ShowWindow(hWnd, nCmdShow);
 
 	HANDLE hAccel = LoadAccelerators(NULL, MAKEINTRESOURCE(IDR_ACCELERATOR2));
@@ -631,18 +636,19 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		}
 	}
 
-	//if (hThreads[3] != NULL) {
-	//	WaitForSingleObject(hThreads[3], INFINITE);
-	//	CloseHandle(hMapaDePosicoesPartilhada);
-	//}
+	if (hThreads[0] != INVALID_HANDLE_VALUE &&
+		hThreads[1] != INVALID_HANDLE_VALUE &&
+		hThreads[2] != INVALID_HANDLE_VALUE &&
+		hThreads[3] != INVALID_HANDLE_VALUE &&
+		hThreads[4] != INVALID_HANDLE_VALUE) {
+		for (size_t i = 0; i < NThreads; i++)
+		{
+			*threadsStatus[i] = 0;
+		}
+		WaitForMultipleObjects(NThreads, hThreads, TRUE, INFINITE);
+	}
 
-//	if (hThreads[0] != NULL && hThreads[1] != NULL && hThreads[2] != NULL && hThreads[3] != NULL)
-//		WaitForMultipleObjects(4, hThreads, TRUE, INFINITE);
-
-		// ============================================================================
-	// 6. Fim do programa
-	// ============================================================================
-	return((int)lpMsg.wParam);	// Retorna sempre o parâmetro wParam da estrutura lpMsg
+	return((int)lpMsg.wParam);
 }
 
 BOOL GerarConsola() {
@@ -821,13 +827,13 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			Aeroporto* aux = &aeroGlobal[i];
 			if (_tcscmp(aux->nome, L"") != 0) {
 				TCHAR info[200] = { 0 };
-				swprintf_s(info, 200, L"Aeroporto: %s", aux->nome);
+				swprintf_s(info, 200, L"Aeroporto: %s (%d, %d) ", aux->nome, aux->x, aux->y);
 				BitBlt(memDC, aux->xBM, aux->yBM, bmpAero.bmWidth, bmpAero.bmHeight, bmpAeroDC, 0, 0, SRCCOPY);
 				if (aux->hover) {
 					int margem = 20;
 					rect.left = aux->xBM + bmpAero.bmWidth + margem;
 					rect.top = aux->yBM;
-					DrawText(memDC, info, -1,&rect, DT_SINGLELINE);
+					DrawText(memDC, info, -1, &rect, DT_SINGLELINE);
 				}
 			}
 		}
@@ -835,12 +841,12 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			Aviao* aux = &aviaoGlobal[i];
 			if (aux->id != 0) {
 				TCHAR info[200] = { 0 };
-				swprintf_s(info, 200, L"Aviao: %d, \n status %d", aux->id, aux->statusViagem);
+				swprintf_s(info, 200, L"Aviao: %d,(%d, %d) status %d", aux->id, aux->x, aux->y, aux->statusViagem);
 				BitBlt(memDC, aux->xBM, aux->yBM, bmpAviao.bmWidth, bmpAviao.bmHeight, bmpAviaoDC, 0, 0, SRCCOPY);
 				if (aux->hover) {
 					int margem = 20;
 					rect.left = aux->xBM + bmpAviao.bmWidth + margem;
-					rect.top = aux->yBM;
+					rect.top = aux->yBM + (aux->idAeroporto == -1 ? -20 : 0);
 					DrawText(memDC, info, -1, &rect, DT_SINGLELINE);
 				}
 			}
@@ -907,9 +913,7 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 		{
 		case IDOK:
 		{
-			// GetDlgItemText() vai à dialogbox e vai buscar o input do user
-			//
-			//MessageBox(hWnd, username, TEXT("IDOK"), MB_OK | MB_ICONINFORMATION);
+			EndDialog(hWnd, 0);
 		}
 		case IDCANCEL: {
 			EndDialog(hWnd, 0);
@@ -973,46 +977,6 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 			}
 		}
 		return TRUE;
-		}
-		if (LOWORD(wParam) == IDOK)
-		{
-			// GetDlgItemText() vai à dialogbox e vai buscar o input do user
-			//
-			//MessageBox(hWnd, username, TEXT("IDOK"), MB_OK | MB_ICONINFORMATION);
-		}
-		else if (LOWORD(wParam) == IDCANCEL)
-		{
-			EndDialog(hWnd, 0);
-			return TRUE;
-		}
-		else if (LOWORD(wParam) == IDC_BUTTON1) {
-			GetDlgItemText(hWnd, IDC_EDIT1, nomeAero, 100);
-			GetDlgItemText(hWnd, IDC_EDIT2, CordX, 100);
-			GetDlgItemText(hWnd, IDC_EDIT3, CordY, 100);
-			if (tokenValid(nomeAero) && tokenValid(CordX) && tokenValid(CordY)) {
-				if (verificaAeroExiste(nomeAero, aeroGlobal)) {
-					MessageBox(hWnd, TEXT("Ja Existe"), TEXT("OK"), MB_ICONERROR);
-					break;
-				}
-
-				int x = _tstoi(CordX);
-				int y = _tstoi(CordY);
-				if (verificaAeroCords(x, y, aeroGlobal)) {
-					int index = adicionarAeroporto(nomeAero, x, y, aeroGlobal);
-					HWND hwndList = GetDlgItem(hWnd, IDC_LIST1);
-					int pos = (int)SendMessage(hwndList, LB_ADDSTRING, 0,
-						(LPARAM)nomeAero);
-					SendMessage(hwndList, LB_SETITEMDATA, pos, index);
-				}
-				else {
-					MessageBox(hWnd, TEXT("Aeroporto muito proximo de outro. tente mais longe"), TEXT("OK"), MB_ICONERROR);
-					break;
-				}
-				MessageBox(hWnd, TEXT("Aeroporto up and running!!"), TEXT("OK"), MB_OK);
-				break;
-			}
-
-			MessageBox(hWnd, TEXT("Erro dados Invalidos"), TEXT("OK"), MB_ICONERROR);
 		}
 		break;
 
