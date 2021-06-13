@@ -50,7 +50,6 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 DWORD WINAPI ThreadWriter(LPVOID param) {
 	MSGThread* dados = (MSGThread*)param;
 	MSGcel cel;
-	int contador = 0;
 
 	while (!dados->terminar) {
 		WaitForSingleObject(dados->hEventEnviarMSG, INFINITE);
@@ -183,7 +182,6 @@ int _tmain() {
 	hThreads[1] = CreateThread(NULL, 0, ThreadReader, &controler, 0, NULL);
 
 	Aviao aviao;
-	ZeroMemory(&aviao, sizeof(Aviao));
 	aviao.id = escreve.idAviao;
 	aviao.proxDestinoId = -1;
 	aviao.x = -1;

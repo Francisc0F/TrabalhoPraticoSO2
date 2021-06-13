@@ -13,9 +13,9 @@
 #define MAXAVIOES 100
 
 #define TID_POLLMOUSE 100
-#define MOUSE_POLL_DELAY 500
+#define MOUSE_POLL_DELAY 20
 
-POINT pt = { 1,2 };
+POINT pt = { 0,0};
 
 #pragma region declaracaoGlobais para UI
 HBITMAP hBmpAviao;
@@ -763,7 +763,6 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			int deCima = rc.top + 50 + aux->yBM;
 			int daEsquerda = rc.left + aux->xBM;
 			if (aux->id != 0 &&
-				aux->idAeroporto != -1 &&
 				deCima  < pt.y &&
 				deCima + bmpAviao.bmHeight > pt.y &&
 				daEsquerda < pt.x &&
@@ -835,7 +834,15 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		for (size_t i = 0; i < MAXAVIOES; i++) {
 			Aviao* aux = &aviaoGlobal[i];
 			if (aux->id != 0) {
+				TCHAR info[200] = { 0 };
+				swprintf_s(info, 200, L"Aviao: %d, \n status %d", aux->id, aux->statusViagem);
 				BitBlt(memDC, aux->xBM, aux->yBM, bmpAviao.bmWidth, bmpAviao.bmHeight, bmpAviaoDC, 0, 0, SRCCOPY);
+				if (aux->hover) {
+					int margem = 20;
+					rect.left = aux->xBM + bmpAviao.bmWidth + margem;
+					rect.top = aux->yBM;
+					DrawText(memDC, info, -1, &rect, DT_SINGLELINE);
+				}
 			}
 		}
 		ReleaseMutex(hMutexPintura);
