@@ -5,14 +5,11 @@
 
 void menuAviao() {
 	_putws(TEXT("\nprox <destino> - Proximo destino"));
-	_putws(TEXT("emb - embarcar passageiros"));
 	_putws(TEXT("init - iniciar viagem"));
 	_putws(TEXT("quit - terminar instancia de aviao"));
 }
 
-void printMSG(MSGcel cel) {
-	_tprintf(TEXT("info %s, x %d, y %d, \n"), cel.info, cel.x, cel.y);
-}
+
 
 void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane* ler) {
 	*hFileMap = CreateFileMapping(

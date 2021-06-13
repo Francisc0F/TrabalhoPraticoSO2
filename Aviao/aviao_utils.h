@@ -20,7 +20,6 @@ typedef struct {
 typedef int(__cdecl* MYPROC)(LPWSTR);
 
 void menuAviao();
-void printMSG(MSGcel cel);
 void preparaLeituraMSGdoAviao(HANDLE* hFileMap, ControllerToPlane * ler);
 void preparaEnvioDeMensagensParaOControlador(HANDLE* hFileEscritaMap, MSGThread* escreve, BOOL* primeiroProcesso);
 void enviarMensagemParaControlador(MSGThread* escreve, TCHAR* info);

@@ -50,6 +50,8 @@ struct c {
 	int y;
 	int xBM;
 	int yBM;
+	int hover;
+
 	int statusViagem;//  -1 = nao esta em viagem, != -1 esta em viagem
 };
 
@@ -61,6 +63,7 @@ struct x {
 	int y;
 	int xBM;
 	int yBM;
+	int hover;
 };
 
 typedef struct e Passag, * pPassag;
