@@ -141,7 +141,7 @@ typedef struct {
 	MSGThread* escrita;
 	int terminar;
 	MapaPartilhado* MapaPartilhado;
-	HANDLE hMutexAcessoAMapaPartilhado;
+	HANDLE *hMutexAcessoAMapaPartilhado;
 	Aviao* aviaoMemLocal;
 }ThreadGerirViagens;
 
@@ -157,5 +157,6 @@ BOOL isNumber(TCHAR* text);
 
 void atualizaPosicaoAviao(Aviao* a, int x, int y);
 void updateAviao(Aviao* a, int idAero, int statusViagem, int x, int y);
+void updateAviaoCp(Aviao a, int idAero, int statusViagem, int x, int y);
 void updateAeroportoAviao(Aviao * a, int idAero);
 void apagaDoSistema(Aviao* a);

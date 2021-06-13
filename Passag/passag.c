@@ -15,7 +15,7 @@ BOOL validaArgs(int argc, LPTSTR argv[], TCHAR origem[], TCHAR destino[], TCHAR 
 			_tcscpy_s(origem, BUFFER, argv[1]);
 			_tcscpy_s(destino, BUFFER, argv[2]);
 			_tcscpy_s(nome, BUFFER, argv[3]);
-			if (tokenValid(argv[4]) && isNumber(argv[4])) {
+			if (isNumber(argv[4])) {
 				*tempoEspera = _tstoi(argv[4]);
 			}
 			return TRUE;
@@ -26,14 +26,14 @@ BOOL validaArgs(int argc, LPTSTR argv[], TCHAR origem[], TCHAR destino[], TCHAR 
 }
 
 
-BOOL WriteToPIPE(DWORD * cbToWrite, BOOL *fSuccess, MensagemPipe* Message, HANDLE * hPipe, DWORD* cbWritten) {
+BOOL WriteToPIPE(DWORD* cbToWrite, BOOL* fSuccess, MensagemPipe* Message, HANDLE* hPipe, DWORD* cbWritten) {
 	*cbToWrite = sizeof(MensagemPipe);
 	*fSuccess = WriteFile(
-		*hPipe,                  // pipe handle 
-		Message,				// message 
-		*cbToWrite,              // message length 
-		cbWritten,             // bytes written 
-		NULL);                  // not overlapped 
+		*hPipe,                  // pipe handle
+		Message,				// message
+		*cbToWrite,              // message length
+		cbWritten,             // bytes written
+		NULL);                  // not overlapped
 
 	if (!*fSuccess)
 	{
@@ -47,17 +47,17 @@ BOOL ReadFromPIPE(DWORD* cbRead, BOOL* fSuccess, MensagemPipe* Message, HANDLE* 
 	do
 	{
 		*fSuccess = ReadFile(
-			*hPipe,    // pipe handle 
-			Message,    // buffer to receive reply 
-			sizeof(MensagemPipe),  // size of buffer 
-			cbRead,  // number of bytes read 
-			NULL);    // not overlapped 
+			*hPipe,    // pipe handle
+			Message,    // buffer to receive reply
+			sizeof(MensagemPipe),  // size of buffer
+			cbRead,  // number of bytes read
+			NULL);    // not overlapped
 
 		if (!*fSuccess && GetLastError() != ERROR_MORE_DATA)
 			return FALSE;
 
-		
-	} while (!*fSuccess);  // repeat loop if ERROR_MORE_DATA 
+
+	} while (!*fSuccess);  // repeat loop if ERROR_MORE_DATA
 
 	if (!*fSuccess)
 	{
@@ -76,7 +76,6 @@ int _tmain(int argc, LPTSTR argv[])
 	_setmode(_fileno(stdin), _O_WTEXT);
 	_setmode(_fileno(stdout), _O_WTEXT);
 #endif
-	
 	TCHAR* erro = TEXT("Dados Invalidos passageiro Terminou.\n");
 
 
@@ -100,26 +99,26 @@ int _tmain(int argc, LPTSTR argv[])
 		_tcscpy_s(Message.autor.nome, _countof(Message.autor.nome), nome);
 		_tcscpy_s(Message.mensagem, _countof(Message.mensagem), TEXT("1"));
 
-		// Try to open a named pipe; wait for it, if necessary. 
+		// Try to open a named pipe; wait for it, if necessary.
 #pragma region connect to pipe
 		while (1)
 		{
 			hPipe = CreateFile(
-				PIPEPASSAG,   // pipe name 
-				GENERIC_READ |  // read and write access 
+				PIPEPASSAG,   // pipe name
+				GENERIC_READ |  // read and write access
 				GENERIC_WRITE,
-				0,              // no sharing 
+				0,              // no sharing
 				NULL,           // default security attributes
-				OPEN_EXISTING,  // opens existing pipe 
-				FILE_FLAG_OVERLAPPED,           
-				NULL);          // no template file 
+				OPEN_EXISTING,  // opens existing pipe
+				FILE_FLAG_OVERLAPPED,
+				NULL);          // no template file
 
-		  // Break if the pipe handle is valid. 
+		  // Break if the pipe handle is valid.
 
 			if (hPipe != INVALID_HANDLE_VALUE)
 				break;
 
-			// Exit if an error other than ERROR_PIPE_BUSY occurs. 
+			// Exit if an error other than ERROR_PIPE_BUSY occurs.
 
 			if (GetLastError() != ERROR_PIPE_BUSY)
 			{
@@ -127,7 +126,7 @@ int _tmain(int argc, LPTSTR argv[])
 				return -1;
 			}
 
-			// All pipe instances are busy, so wait for 20 seconds. 
+			// All pipe instances are busy, so wait for 20 seconds.
 
 			if (!WaitNamedPipe(PIPEPASSAG, 20000))
 			{
@@ -136,15 +135,15 @@ int _tmain(int argc, LPTSTR argv[])
 			}
 		}
 #pragma endregion
-		// The pipe connected; change to message-read mode. 
+		// The pipe connected; change to message-read mode.
 
 		// config pipe
 		dwMode = PIPE_READMODE_MESSAGE;
 		fSuccess = SetNamedPipeHandleState(
-			hPipe,    // pipe handle 
-			&dwMode,  // new pipe mode 
-			NULL,     // don't set maximum bytes 
-			NULL);    // don't set maximum time 
+			hPipe,    // pipe handle
+			&dwMode,  // new pipe mode
+			NULL,     // don't set maximum bytes
+			NULL);    // don't set maximum time
 		if (!fSuccess)
 		{
 			_tprintf(TEXT("SetNamedPipeHandleState failed. GLE=%d\n"), GetLastError());
@@ -169,7 +168,7 @@ int _tmain(int argc, LPTSTR argv[])
 				}
 			}
 		}
-	
+
 
 
 		CloseHandle(hPipe);

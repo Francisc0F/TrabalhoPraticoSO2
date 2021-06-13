@@ -1,17 +1,17 @@
 #pragma once
 
 #define DLL "SO2_TP_DLL_2021.dll"
+#define NThreads 4
 typedef struct {
 	MSGThread* escrita;
 	ControllerToPlane* leitura;
 }ThreadsControlerAviao;
 
 typedef struct {
-
 	HANDLE hTimer;
 	MapaPartilhado* MapaPartilhado;
 	Aviao* AviaoLocal;
-	HANDLE hMutexAcessoAMapaPartilhado;
+	HANDLE *hMutexAcessoAMapaPartilhado;
 	int terminar;
 }ThreadPingControler;
 

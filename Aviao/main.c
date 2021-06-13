@@ -21,7 +21,7 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 			break;
 
 		WaitForSingleObject(dados->hMutex, INFINITE);
-		// escreve->id é unico e seguro de usar pois passa num mutex ao arrancar do programa 
+		// escreve->id é unico e seguro de usar pois passa num mutex ao arrancar do programa
 		if (dados->fileViewMap->idAviao == escreve->idAviao) {
 			// guarda mensagem em variavel local
 			_tcscpy_s(dados->ultimaMsg, _countof(dados->ultimaMsg), dados->fileViewMap->info);
@@ -36,7 +36,7 @@ DWORD WINAPI ThreadReader(LPVOID param) {
 				_fgetts(cmd, 23, stdin);
 				exit(0);
 			}
-		
+
 		}
 		ReleaseMutex(dados->hMutex);
 
@@ -68,7 +68,7 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 
 		WaitForSingleObject(dados->hMutex, INFINITE);
 		CopyMemory(&dados->bufferPartilhado->buffer[dados->bufferPartilhado->posE], &cel, sizeof(MSGcel));
-		dados->bufferPartilhado->posE++; 
+		dados->bufferPartilhado->posE++;
 		if (dados->bufferPartilhado->posE == TAM_BUFFER_CIRCULAR)
 			dados->bufferPartilhado->posE = 0;
 		ReleaseMutex(dados->hMutex);
@@ -82,12 +82,15 @@ DWORD WINAPI ThreadWriter(LPVOID param) {
 
 DWORD WINAPI GestoraDeViagens(LPVOID param) {
 	ThreadGerirViagens* dados = (ThreadGerirViagens*)param;
-	
+
 	while (!dados->terminar) {
 		WaitForSingleObject(dados->hEventNovaViagem, INFINITE);
 		int x = viajar(dados);
 		if (x == 0) {
 			enviarMensagemParaControlador(dados->escrita, TEXT("CHEGOU AO NOVO DESTINO"));
+		}
+		else {
+			_tprintf(TEXT("ERRO a viajar\n"));
 		}
 	}
 	return 0;
@@ -98,7 +101,6 @@ DWORD WINAPI EstouAquiPing(LPVOID param) {
 	MapaPartilhado* partilhado = threadControl->MapaPartilhado;
 	Aviao* aviaoLocal = threadControl->AviaoLocal;
 
-	int contador = 0;
 	while (!threadControl->terminar) {
 
 		if (WaitForSingleObject(threadControl->hTimer, INFINITE) != WAIT_OBJECT_0) {
@@ -106,13 +108,15 @@ DWORD WINAPI EstouAquiPing(LPVOID param) {
 			break;
 		}
 		else {
-			WaitForSingleObject(threadControl->hMutexAcessoAMapaPartilhado, INFINITE);
+			WaitForSingleObject(*threadControl->hMutexAcessoAMapaPartilhado, INFINITE);
 			int index = getAviao(aviaoLocal->id, partilhado->avioesMapa);
 			Aviao* aux = &partilhado->avioesMapa[index];
-			aux->segundosVivo += 3;
-			ReleaseMutex(threadControl->hMutexAcessoAMapaPartilhado);
+			if (aux != NULL) {
+				aux->segundosVivo += 3;
+			}
+			ReleaseMutex(*threadControl->hMutexAcessoAMapaPartilhado);
 		}
-		
+
 	}
 
 	return 0;
@@ -122,7 +126,7 @@ DWORD WINAPI EstouAquiPing(LPVOID param) {
 
 
 
-int _tmain(int argc, LPTSTR argv[]) {
+int _tmain() {
 
 	HANDLE hMapaDePosicoesPartilhada;
 	HANDLE hMutexMapaDePosicoesPartilhada;
@@ -134,8 +138,11 @@ int _tmain(int argc, LPTSTR argv[]) {
 		return -1;
 	}
 	MapaPartilhado* mapaAvioesPartilhado = (MapaPartilhado*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-	
 
+	if (mapaAvioesPartilhado == NULL) {
+		_tprintf(TEXT("Erro ponteiro mapa partilhado\n"));
+		return -1;
+	}
 	HANDLE hSem = CreateSemaphore(NULL, 1, 1, SEMAPHORE_NUM_AVIOES);
 	if (hSem == NULL) {
 		_tprintf(TEXT("Erro no CreateSemaphore controloDeNumeroDeAvioes\n"));
@@ -145,17 +152,17 @@ int _tmain(int argc, LPTSTR argv[]) {
 	_tprintf(TEXT("Aguarda ordem de entrada do controlador...\n"));
 	WaitForSingleObject(hSem, INFINITE);
 
-	//UNICODE: Por defeito, a consola Windows não processa caracteres wide. 
+	//UNICODE: Por defeito, a consola Windows não processa caracteres wide.
 	//A maneira mais fácil para ter esta funcionalidade é chamar _setmode:
-#ifdef UNICODE 
+#ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);
 	_setmode(_fileno(stdout), _O_WTEXT);
 #endif
 	// TODO  fazer validacao com open no mutex do controlador para saber se o controlador esta vivo
 
 #pragma region init
-
-	HANDLE hThreads[4];
+	int* threadsStatus[NThreads];
+	HANDLE hThreads[NThreads];
 	ThreadsControlerAviao controler;
 
 	// thread para enviar mensagens pro controlador -> buffer circular
@@ -163,6 +170,7 @@ int _tmain(int argc, LPTSTR argv[]) {
 	MSGThread escreve;
 	BOOL primeiroProcesso = FALSE;
 	preparaEnvioDeMensagensParaOControlador(&hFileEscritaMap, &escreve, &primeiroProcesso);
+	threadsStatus[0] = &escreve.terminar;
 	hThreads[0] = CreateThread(NULL, 0, ThreadWriter, &escreve, 0, NULL);
 
 	// thread para receber mensagens do controlador -> memoria partilhada acesso direto
@@ -171,9 +179,11 @@ int _tmain(int argc, LPTSTR argv[]) {
 	controler.escrita = &escreve;
 	controler.leitura = &ler;
 	preparaLeituraMSGdoAviao(&hFileLeituraMap, &ler);
+	threadsStatus[1] = &ler.terminar;
 	hThreads[1] = CreateThread(NULL, 0, ThreadReader, &controler, 0, NULL);
 
 	Aviao aviao;
+	ZeroMemory(&aviao, sizeof(Aviao));
 	aviao.id = escreve.idAviao;
 	aviao.proxDestinoId = -1;
 	aviao.x = -1;
@@ -184,11 +194,11 @@ int _tmain(int argc, LPTSTR argv[]) {
 
 	ThreadGerirViagens ThreadViagens;
 	preparaThreadDeGestaoViagens(&ThreadViagens);
-
 	ThreadViagens.escrita = &escreve;
-	ThreadViagens.hMutexAcessoAMapaPartilhado = hMutexMapaDePosicoesPartilhada;
+	ThreadViagens.hMutexAcessoAMapaPartilhado = &hMutexMapaDePosicoesPartilhada;
 	ThreadViagens.aviaoMemLocal = &aviao;
 	ThreadViagens.MapaPartilhado = mapaAvioesPartilhado;
+	threadsStatus[2] = &ThreadViagens.terminar;
 	hThreads[2] = CreateThread(NULL, 0, GestoraDeViagens, &ThreadViagens, 0, NULL);
 
 	aviao.processId = GetCurrentProcessId();
@@ -196,8 +206,8 @@ int _tmain(int argc, LPTSTR argv[]) {
 	setupAviao(&aviao, &controler);
 
 	ThreadPingControler ThreadPing;
-	ThreadPing.hTimer = OpenWaitableTimer(TIMER_ALL_ACCESS , NULL, PINGTIMER);
-	if (ThreadPing.hTimer == NULL) {
+	ThreadPing.hTimer = OpenWaitableTimer(TIMER_ALL_ACCESS, NULL, PINGTIMER);
+	if (ThreadPing.hTimer == INVALID_HANDLE_VALUE) {
 		_tprintf(L"OpenWaitableTimer failed (%d)\n", GetLastError());
 		TCHAR cmd[23];
 		_fgetts(cmd, 23, stdin);
@@ -205,14 +215,25 @@ int _tmain(int argc, LPTSTR argv[]) {
 	}
 	ThreadPing.AviaoLocal = &aviao;
 	ThreadPing.MapaPartilhado = mapaAvioesPartilhado;
+	ThreadPing.hMutexAcessoAMapaPartilhado = &hMutexMapaDePosicoesPartilhada;
 	ThreadPing.terminar = 0;
-	hThreads[3] = CreateThread(NULL, 0, EstouAquiPing, &ThreadPing, 0,NULL);
+	threadsStatus[3] = &ThreadPing.terminar;
+	hThreads[3] = CreateThread(NULL, 0, EstouAquiPing, &ThreadPing, 0, NULL);
 #pragma endregion inicializar variaveis de controlo de threads e inicio de threads leitura e escrita
 
 #pragma region menu aviao
 	interacaoComConsolaAviao(&aviao, &ler, &escreve, &ThreadViagens);
-#pragma endregion 
+#pragma endregion
 
-	if (hThreads[0] != NULL && hThreads[1] != NULL && hThreads[2] != NULL && hThreads[3] != NULL)
-		WaitForMultipleObjects(4, hThreads, TRUE, INFINITE);
+
+	if (hThreads[0] != INVALID_HANDLE_VALUE &&
+		hThreads[1] != INVALID_HANDLE_VALUE &&
+		hThreads[2] != INVALID_HANDLE_VALUE &&
+		hThreads[3] != INVALID_HANDLE_VALUE) {
+		for (size_t i = 0; i < NThreads; i++)
+		{
+			*threadsStatus[i] = 0;
+		}
+		WaitForMultipleObjects(NThreads, hThreads, TRUE, INFINITE);
+	}
 }

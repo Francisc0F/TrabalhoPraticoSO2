@@ -1,4 +1,4 @@
-#include <windows.h>
+#include <Windows.h>
 #include <windowsx.h>
 #include <tchar.h>
 #include <fcntl.h>
@@ -75,7 +75,6 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 	MSGThread* dados = threadControl->leitura;
 	BufferCircular* bufferPartilhado = dados->bufferPartilhado;
 	MSGcel celLocal;
-	int soma = 0;
 	TCHAR* garbage = NULL;
 	while (!dados->terminar) {
 		WaitForSingleObject(dados->hSemLeitura, INFINITE);
@@ -100,7 +99,9 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 			(*threadControl->numAtualAvioes)++;
 			ReleaseMutex(*threadControl->hMutexAcessoMapa);
 			_tprintf(TEXT("adicionou aviao\n"));
-
+			TCHAR send[100] = { 0 };
+			preparaStringdeCords(send, aux->x, aux->y);
+			enviarMensagemParaAviao(celLocal.id, threadControl->escrita, send);
 
 			if (*threadControl->numAtualAvioes == 1) {
 				//iniciar timer de aviso periodico de avioes
@@ -116,13 +117,6 @@ DWORD WINAPI ThreadLerBufferCircular(LPVOID param) {
 					_tprintf(L"SetWaitableTimer failed (%d)\n", GetLastError());
 				}
 			}
-			else if ((*threadControl->numAtualAvioes) == 0) {
-				// todo cancel waitabletimer
-			}
-
-			TCHAR send[100] = { 0 };
-			preparaStringdeCords(send, aux->x, aux->y);
-			enviarMensagemParaAviao(celLocal.id, threadControl->escrita, send);
 		}
 		else if (_tcscmp(celLocal.info, TEXT("aero")) == 0) {
 			_tprintf(TEXT("Enviou %s.\n"), celLocal.info);
@@ -214,21 +208,17 @@ DWORD WINAPI ThreadGestorDeMapa(LPVOID param) {
 
 DWORD WINAPI atualizaUI(LPVOID param) {
 	ThreadAtualizaUI* dados = (ThreadAtualizaUI*)param;
-	int dir = 1; // 1 para a direita, -1 para a esquerda
-	int salto = 1; // quantidade de pixeis que a imagem salta de cada vez
-	Aeroporto* lista = dados->aeroportos;
 	MapaPartilhado* mapa = dados->MapaPartilhado;
 	Aviao* listaAvi = mapa->avioesMapa;
-	int cordsAeroportos = 0;
 	while (1) {
 		// Aguarda que o mutex esteja livre
 		WaitForSingleObject(hMutexPintura, INFINITE);
 
 		for (int i = 0; i < MAXAVIOES; i++) {
-			if (lista[i].id != 0) {
+			if (listaAvi[i].id != 0) {
 				Aviao* aux = &listaAvi[i];
-				aux->xBM = aux->x * 10;
-				aux->yBM = aux->y * 10;
+				aux->xBM = aux->x * MAPFACTOR;
+				aux->yBM = aux->y * MAPFACTOR;
 			}
 		}
 
@@ -511,9 +501,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	}
 	//mapa de avioes
 	MapaPartilhado* mapaPartilhadoAvioes = (MapaPartilhado*)MapViewOfFile(hMapaDePosicoesPartilhada, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-	WaitForSingleObject(hMutexAcessoMapa, INFINITE);
-	mapaPartilhadoAvioes->numAtualAvioes = 0;
-	ReleaseMutex(hMutexAcessoMapa);
+	if (mapaPartilhadoAvioes != NULL) {
+		WaitForSingleObject(hMutexAcessoMapa, INFINITE);
+		mapaPartilhadoAvioes->numAtualAvioes = 0;
+		ReleaseMutex(hMutexAcessoMapa);
+	}
 #pragma endregion
 	aviaoGlobal = mapaPartilhadoAvioes->avioesMapa;
 
@@ -578,7 +570,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 //adicionarAeroporto(TEXT("Paris"), 20, 10, aeroportos);
 //adicionarAeroporto(TEXT("Moscovo, Russia"), 30, 18, aeroportos);
 	adicionarAeroporto(TEXT("Lisbon"), 2, 2, aeroportos);
-	adicionarAeroporto(TEXT("Madrid"), 10, 10, aeroportos);
+	adicionarAeroporto(TEXT("Madrid"), 15, 15, aeroportos);
 
 	PIPEINST Pipe[INSTANCES];
 	HANDLE hEvents[INSTANCES];
@@ -617,7 +609,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 
 	hMutexPintura = CreateMutex(NULL, FALSE, NULL);
 	ThreadAtualizaUI atualiza;
-	atualiza.aeroportos = aeroportos;
 	atualiza.MapaPartilhado = mapaPartilhadoAvioes;
 	CreateThread(NULL, 0, atualizaUI, &atualiza, 0, NULL);
 	ShowWindow(hWnd, nCmdShow);
@@ -717,8 +708,7 @@ BOOL carregaBitmaps(HWND* hWnd) {
 	GetObject(hBmpAero, sizeof(bmpAero), &bmpAero);
 
 	hdc = GetDC(*hWnd);
-	bmpAviaoDC = CreateCompatibleDC(hdc)
-		;
+	bmpAviaoDC = CreateCompatibleDC(hdc);
 	SelectObject(bmpAviaoDC, hBmpAviao);
 
 	bmpAeroDC = CreateCompatibleDC(hdc);
@@ -892,14 +882,11 @@ LRESULT CALLBACK TrataEventosAdministrador(HWND hWnd, UINT messg, WPARAM wParam,
 				int i = (int)SendMessage(hwndList, LB_GETITEMDATA, lbItem, 0);
 
 				Aeroporto* aux = &aeroGlobal[i];
-				//Passag* p = &passagGlobal[0];
 				TCHAR buff[MAX_PATH];
 				TCHAR* formatStr = TEXT("id: [%d]\nNome: [%s]\nPosicao: (%d, %d)\n");
-				///TCHAR* formatStr = PASSAGFORMAT;
 
 				StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, aux->id, aux->nome, aux->x, aux->y);
-				//StringCbPrintf(buff, ARRAYSIZE(buff), formatStr, p->pid, p->nome, p->origem, p->destino, p->tempEspera);
-				TCHAR listaStr[400] = { 0 };
+				TCHAR listaStr[1000] = { 0 };
 				listaPassageirosEmAeroporto(passagGlobal, aux->nome, listaStr);
 				listaAvioesEmAero(aviaoGlobal, aux->id, listaStr);
 

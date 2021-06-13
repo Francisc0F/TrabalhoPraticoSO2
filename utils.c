@@ -49,6 +49,12 @@ void updateAviao(Aviao* a, int idAero, int statusViagem, int x, int y) {
 	atualizaPosicaoAviao(a, x, y);
 }
 
+void updateAviaoCp(Aviao a, int idAero, int statusViagem, int x, int y) {
+	a.statusViagem = statusViagem;
+	updateAeroportoAviao(&a, idAero);
+	atualizaPosicaoAviao(&a, x, y);
+}
+
 void apagaDoSistema(Aviao* a) {
 	updateAviao(a, 0, -1, -1, -1);
 	a->id == 0;
@@ -90,6 +96,10 @@ BOOL tokenValid(TCHAR* token) {
 }
 
 BOOL isNumber(TCHAR* text){
+	if (!tokenValid(text)) {
+		return FALSE;
+	}
+
 	int j;
 	j = _tcslen(text);
 	while (j--)
@@ -97,7 +107,7 @@ BOOL isNumber(TCHAR* text){
 		if (text[j] > 47 && text[j] < 58)
 			continue;
 
-		return 0;
+		return FALSE;
 	}
-	return 1;
+	return TRUE;
 }

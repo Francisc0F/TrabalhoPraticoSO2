@@ -95,7 +95,6 @@ void printPassag(pPassag p, TCHAR* out) {
 }
 
 void adicionarAviao(Aviao* a, Aviao lista[]) {
-	// int id, int n_passag, int max_passag, int posPorSegundo, int idAero,
 	for (int i = 0; i < MAXAVIOES; i++) {
 		if (lista[i].id == 0) {
 			lista[i].id = a->id;
@@ -190,7 +189,7 @@ void listaAvioesEmAero(Aviao lista[], int idAero, TCHAR* out) {
 		if (lista[i].id < 0) {
 			break;
 		}
-		
+
 		if ( lista[i].idAeroporto == idAero) {
 			printAviao(&lista[i], out);
 		}
@@ -469,11 +468,11 @@ void enviarMensagemParaAviao(int id, ControllerToPlane* escreve, TCHAR* info) {
 	escreve->msgToSend.idAviao = id;
 	SetEvent(escreve->hEventOrdemDeEscrever);
 	Sleep(50);
-	ResetEvent(escreve->hEventOrdemDeEscrever); 
+	ResetEvent(escreve->hEventOrdemDeEscrever);
 }
 
 void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPartilhadoAvioes, HANDLE* mutexAccessoMapa, ControllerToPlane* escrita) {
-	// menu  
+	// menu
 	while (1) {
 		menuControlador();
 		TCHAR tokenstring[50] = { 0 };
@@ -494,10 +493,10 @@ void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPart
 				if (tokenValid(token)) {
 					_tcscpy_s(nome, _countof(nome), token);
 					token = wcstok_s(NULL, delim, &ptr);
-					if (tokenValid(token) && isNumber(token)) {
+					if (isNumber(token)) {
 						x = _tstoi(token);
 						token = wcstok_s(NULL, delim, &ptr);
-						if (tokenValid(token) && isNumber(token)) {
+						if (isNumber(token)) {
 							y = _tstoi(token);
 							adicionarAeroporto(nome, x, y, aeroportos);
 						}
@@ -553,32 +552,32 @@ void interacaoConsolaControlador(Aeroporto* aeroportos, MapaPartilhado* mapaPart
 
 VOID DisconnectAndReconnect(LPPIPEINST Pipe)
 {
-	// Disconnect the pipe instance. 
+	// Disconnect the pipe instance.
 
 	if (!DisconnectNamedPipe(Pipe->hPipeInst))
 	{
 		_tprintf(TEXT("DisconnectNamedPipe failed with %d\n"), GetLastError());
 	}
 
-	// Call a subroutine to connect to the new client. 
+	// Call a subroutine to connect to the new client.
 
 	Pipe->fPendingIO = ConnectToNewClient(
 		Pipe->hPipeInst,
 		&Pipe->oOverlap);
 
 	Pipe->dwState = Pipe->fPendingIO ?
-		CONNECTING_STATE : // still connecting 
-		READING_STATE;     // ready to read 
+		CONNECTING_STATE : // still connecting
+		READING_STATE;     // ready to read
 }
 
 BOOL ConnectToNewClient(HANDLE hPipe, LPOVERLAPPED lpo)
 {
 	BOOL fConnected, fPendingIO = FALSE;
 
-	// Start an overlapped connection for this pipe instance. 
+	// Start an overlapped connection for this pipe instance.
 	fConnected = ConnectNamedPipe(hPipe, lpo);
 
-	// Overlapped ConnectNamedPipe should return zero. 
+	// Overlapped ConnectNamedPipe should return zero.
 	if (fConnected)
 	{
 		printf("ConnectNamedPipe failed with %d.\n", GetLastError());
@@ -587,18 +586,18 @@ BOOL ConnectToNewClient(HANDLE hPipe, LPOVERLAPPED lpo)
 
 	switch (GetLastError())
 	{
-		// The overlapped connection in progress. 
+		// The overlapped connection in progress.
 	case ERROR_IO_PENDING:
 		fPendingIO = TRUE;
 		break;
 
-		// Client is already connected, so signal an event. 
+		// Client is already connected, so signal an event.
 
 	case ERROR_PIPE_CONNECTED:
 		if (SetEvent(lpo->hEvent))
 			break;
 
-		// If an error occurs during the connect operation... 
+		// If an error occurs during the connect operation...
 	default:
 	{
 		printf("ConnectNamedPipe failed with %d.\n", GetLastError());
